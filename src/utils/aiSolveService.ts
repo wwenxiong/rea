@@ -301,10 +301,15 @@ Please solve all questions now and return strictly the JSON structure containing
   if (!response.ok) {
     let errorDetail = '';
     try {
-      const errJson = await response.json();
-      errorDetail = errJson.error?.message || JSON.stringify(errJson);
+      const rawText = await response.text();
+      try {
+        const errJson = JSON.parse(rawText);
+        errorDetail = errJson.error?.message || errJson.message || JSON.stringify(errJson);
+      } catch {
+        errorDetail = rawText;
+      }
     } catch {
-      errorDetail = await response.text();
+      errorDetail = '';
     }
 
     if (response.status === 429) {
@@ -563,10 +568,15 @@ Please parse the reading passage, extract all questions, solve every question wi
   if (!response.ok) {
     let errorDetail = '';
     try {
-      const errJson = await response.json();
-      errorDetail = errJson.error?.message || JSON.stringify(errJson);
+      const rawText = await response.text();
+      try {
+        const errJson = JSON.parse(rawText);
+        errorDetail = errJson.error?.message || errJson.message || JSON.stringify(errJson);
+      } catch {
+        errorDetail = rawText;
+      }
     } catch {
-      errorDetail = await response.text();
+      errorDetail = '';
     }
 
     if (response.status === 429) {

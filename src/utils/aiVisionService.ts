@@ -65,7 +65,17 @@ export async function fetchWithAutoProxy(targetUrl: string, options: RequestInit
 
     if (isCorsError) {
       const proxyUrl = `/api/proxy?target=${encodeURIComponent(targetUrl)}`;
-      return fetch(proxyUrl, options);
+      const proxyRes = await fetch(proxyUrl, options);
+      if (proxyRes.status === 404) {
+        let host = '第三方模型接口';
+        try {
+          host = new URL(targetUrl).host;
+        } catch {}
+        throw new Error(
+          `跨域(CORS)请求被浏览器拦截：[${host}] 不支持网页直接跨域访问。请在宝塔 Nginx 中添加 /api/proxy 反代规则。`
+        );
+      }
+      return proxyRes;
     }
     throw err;
   }
@@ -215,10 +225,15 @@ JSON Structure:
   if (!response.ok) {
     let errorDetail = '';
     try {
-      const errJson = await response.json();
-      errorDetail = errJson.error?.message || JSON.stringify(errJson);
+      const rawText = await response.text();
+      try {
+        const errJson = JSON.parse(rawText);
+        errorDetail = errJson.error?.message || errJson.message || JSON.stringify(errJson);
+      } catch {
+        errorDetail = rawText;
+      }
     } catch {
-      errorDetail = await response.text();
+      errorDetail = '';
     }
 
     if (response.status === 429) {

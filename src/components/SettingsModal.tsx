@@ -57,16 +57,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (!res.ok) {
         let errorDetail = '';
         try {
-          const errJson = await res.json();
-          errorDetail = errJson.error?.message || JSON.stringify(errJson);
+          const rawText = await res.text();
+          try {
+            const errJson = JSON.parse(rawText);
+            errorDetail = errJson.error?.message || errJson.message || JSON.stringify(errJson);
+          } catch {
+            errorDetail = rawText;
+          }
         } catch {
-          errorDetail = await res.text();
+          errorDetail = '';
         }
 
         if (res.status === 429) {
           throw new Error(`429 频次限制: ${errorDetail || '账号并发或 TPM 达上限，请稍后再试'}`);
         } else if (res.status === 401) {
-          throw new Error('401 认证失败: API Key 无效或已过期，请核对密钥');
+          throw new Error(`401 认证失败: API Key 无效或未授权 (${errorDetail || '请核对密钥'})`);
         } else if (res.status === 404) {
           throw new Error(`404 路径不存在: 请核对 Base URL (${config.baseUrl}) 或模型名称是否正确`);
         }
