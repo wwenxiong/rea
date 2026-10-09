@@ -24,7 +24,6 @@ function App() {
   const {
     state,
     setCourseware,
-    setMode,
     setFontSize,
     increaseFontSize,
     decreaseFontSize,
@@ -162,14 +161,6 @@ function App() {
     },
     [setCourseware]
   );
-
-  const handleSaveCurrent = useCallback(() => {
-    if (state.courseware) {
-      const updated = saveCoursewareToStorage(state.courseware);
-      setLibraryCount(updated.length);
-      alert(`《${state.courseware.title}》已成功保存至课件库！`);
-    }
-  }, [state.courseware]);
 
   const handleAISolveSuccess = useCallback(
     (updatedCourseware: Courseware) => {

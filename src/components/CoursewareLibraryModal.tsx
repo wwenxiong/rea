@@ -75,10 +75,9 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
         const parsed = JSON.parse(text);
         if (Array.isArray(parsed)) {
           // Backup list
-          let lastSaved: Courseware[] = [];
           parsed.forEach((item) => {
             if (item.title && Array.isArray(item.paragraphs)) {
-              lastSaved = saveCoursewareToStorage(item);
+              saveCoursewareToStorage(item);
             }
           });
           setCoursewares(getSavedCoursewares());

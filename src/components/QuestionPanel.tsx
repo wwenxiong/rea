@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { Question, SummaryGroup } from '../types';
 import { getQuestionColor } from '../constants/colors';
 import { SummaryCard } from './SummaryCard';

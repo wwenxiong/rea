@@ -28,7 +28,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   fontSize,
   areAnswersShown,
   libraryCount,
-  unsolvedCount,
   onIncreaseFontSize,
   onDecreaseFontSize,
   onSetFontSize,
@@ -37,8 +36,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onExport,
   onExportPDF,
   onOpenLibrary,
-  onSaveCurrent,
-  onAISolve,
   onOpenSettings,
 }) => {
   return (

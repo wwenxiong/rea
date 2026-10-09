@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import mammoth from 'mammoth';
-import type { Courseware, Question, HighlightRange, SummaryGroup } from '../types';
+import type { Courseware, Question, SummaryGroup } from '../types';
 import {
   parseExamImagesWithVision,
   loadSavedAIConfig,
