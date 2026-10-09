@@ -68,4 +68,7 @@ export default defineConfig({
     tailwindcss(),
     apiProxyPlugin(),
   ],
+  build: {
+    emptyOutDir: false,
+  },
 });
