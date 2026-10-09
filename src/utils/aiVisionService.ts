@@ -55,6 +55,17 @@ export async function fetchWithAutoProxy(targetUrl: string, options: RequestInit
     return fetch(targetUrl, options);
   }
 
+  // 针对商汤等被浏览器 CORS 拦截的接口，优先尝试本站反代通道 /sensenova
+  if (targetUrl.includes('token.sensenova.cn')) {
+    const localProxyUrl = targetUrl.replace(/https?:\/\/token\.sensenova\.cn/, '/sensenova');
+    try {
+      const localRes = await fetch(localProxyUrl, options);
+      if (localRes.status !== 404 && localRes.status !== 502) {
+        return localRes;
+      }
+    } catch {}
+  }
+
   try {
     const directResponse = await fetch(targetUrl, options);
     return directResponse;
@@ -64,18 +75,19 @@ export async function fetchWithAutoProxy(targetUrl: string, options: RequestInit
       (err instanceof Error && err.message.toLowerCase().includes('failed to fetch'));
 
     if (isCorsError) {
-      const proxyUrl = `/api/proxy?target=${encodeURIComponent(targetUrl)}`;
-      const proxyRes = await fetch(proxyUrl, options);
-      if (proxyRes.status === 404) {
-        let host = '第三方模型接口';
-        try {
-          host = new URL(targetUrl).host;
-        } catch {}
-        throw new Error(
-          `跨域(CORS)请求被浏览器拦截：[${host}] 不支持网页直接跨域访问。请在宝塔 Nginx 中添加 /api/proxy 反代规则。`
-        );
+      // 尝试直通代理（不进行二次 URL 编码，避免 Nginx $arg 无法解析 %3A）
+      const proxyUrl = `/api/proxy?target=${targetUrl}`;
+      try {
+        const proxyRes = await fetch(proxyUrl, options);
+        if (proxyRes.status === 404 || proxyRes.status === 500) {
+          throw new Error(
+            `跨域拦截：浏览器无法直接请求商汤接口。请在宝塔 Nginx 中配置 /sensenova/ 反向代理规则。`
+          );
+        }
+        return proxyRes;
+      } catch (proxyErr) {
+        throw proxyErr;
       }
-      return proxyRes;
     }
     throw err;
   }
