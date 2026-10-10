@@ -109,8 +109,8 @@ export const getConciseAnnotationMeaning = (
   if (annot.note && annot.note.trim()) {
     const trimmed = annot.note.trim();
 
-    // Check if user inserted AI summary format 【语境义】[pos] def
-    const ctxMatch = trimmed.match(/【语境义】\s*(?:\[([^\]]+)\])?\s*([^\n\r]+)/);
+    // Check if user inserted summary format 【本文释义】/【语境义】[pos] def
+    const ctxMatch = trimmed.match(/【(?:本文释义|语境义)】\s*(?:\[([^\]]+)\])?\s*([^\n\r]+)/);
     if (ctxMatch) {
       const pos = ctxMatch[1]?.trim() || '';
       let def = ctxMatch[2]?.replace(/[\(（][^\)）]*[\)）]/g, '').trim() || '';
@@ -124,7 +124,7 @@ export const getConciseAnnotationMeaning = (
       return firstDef.length > maxLength ? firstDef.slice(0, maxLength) : firstDef;
     }
 
-    const transMatch = trimmed.match(/【AI 语境译文】\s*([^\n\r]+)/);
+    const transMatch = trimmed.match(/【(?:AI 语境译文|译文)】\s*([^\n\r]+)/);
     if (transMatch) {
       let t = transMatch[1].replace(/[\(（][^\)）]*[\)）]/g, '').trim();
       t = t.split(/[,，;；、。!！?？]/)[0]?.trim() || t;

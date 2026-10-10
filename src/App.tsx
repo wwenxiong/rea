@@ -760,24 +760,24 @@ function App() {
             <span>写笔记</span>
           </button>
 
-          {/* Action: AI Lexicon Explanation */}
+          {/* Action: Lexicon Explanation */}
           <button
             type="button"
             onClick={handleOpenAIModal}
             className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-indigo-300 hover:text-white bg-indigo-600/70 hover:bg-indigo-600 rounded-lg transition-all shadow-xs cursor-pointer"
           >
-            <span>🤖</span>
-            <span>AI 释义</span>
+            <span>📖</span>
+            <span>释义</span>
           </button>
 
-          {/* Action: AI Translation */}
+          {/* Action: Translation */}
           <button
             type="button"
             onClick={handleOpenTranslateModal}
             className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-emerald-300 hover:text-white bg-emerald-600/70 hover:bg-emerald-600 rounded-lg transition-all shadow-xs cursor-pointer"
           >
             <span>🌐</span>
-            <span>AI 翻译</span>
+            <span>翻译</span>
           </button>
 
           {/* Close / Dismiss */}

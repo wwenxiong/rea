@@ -196,7 +196,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
 
   const handleInsertAIToNote = () => {
     if (!aiAnalysis) return;
-    const aiSummary = `【语境义】[${aiAnalysis.contextualMeaning.pos}] ${aiAnalysis.contextualMeaning.definition}\n${aiAnalysis.contextualMeaning.explanation}\n\n【全部词义】\n${aiAnalysis.allMeanings.map(m => `• [${m.pos}] ${m.definition}${m.example ? ` (${m.example})` : ''}`).join('\n')}`;
+    const aiSummary = `【本文释义】[${aiAnalysis.contextualMeaning.pos}] ${aiAnalysis.contextualMeaning.definition}\n${aiAnalysis.contextualMeaning.explanation}\n\n【所有词义】\n${aiAnalysis.allMeanings.map(m => `• [${m.pos}] ${m.definition}${m.example ? ` (${m.example})` : ''}`).join('\n')}`;
 
     if (noteText.trim()) {
       setNoteText(prev => `${prev}\n\n${aiSummary}`);
@@ -209,12 +209,12 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
   const handleInsertTranslationToNote = () => {
     if (!aiTranslation) return;
     const parts: string[] = [];
-    parts.push(`【AI 语境译文】\n${aiTranslation.translation}`);
+    parts.push(`【译文】\n${aiTranslation.translation}`);
     if (aiTranslation.literalTranslation) {
-      parts.push(`【直译对照】\n${aiTranslation.literalTranslation}`);
+      parts.push(`【直译】\n${aiTranslation.literalTranslation}`);
     }
     if (aiTranslation.syntaxBreakdown) {
-      parts.push(`【句法解析】\n${aiTranslation.syntaxBreakdown}`);
+      parts.push(`【句法拆解】\n${aiTranslation.syntaxBreakdown}`);
     }
     if (aiTranslation.keyVocabulary && aiTranslation.keyVocabulary.length > 0) {
       parts.push(`【重点词汇】\n${aiTranslation.keyVocabulary.map(v => `• ${v.word}: ${v.meaning}`).join('\n')}`);
@@ -271,7 +271,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <h3 className="text-xs font-extrabold text-slate-800">
-                  划词精读标记
+                  划词标记
                 </h3>
                 <span className="text-[10px] text-slate-400 font-normal">
                   (按住可拖拽)
@@ -317,7 +317,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <span>🤖 AI 释义</span>
+            <span>📖 释义</span>
             {aiAnalysis && (
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             )}
@@ -331,7 +331,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <span>🌐 AI 翻译</span>
+            <span>🌐 翻译</span>
             {aiTranslation && (
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             )}
@@ -371,7 +371,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-bold text-slate-700">
-                    我的学习笔记 (可自由填写考点、释义等):
+                    学习笔记:
                   </label>
                   <div className="flex items-center gap-1.5">
                     {aiTranslation && (
@@ -398,35 +398,35 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                   rows={3}
                   value={noteText}
                   onChange={(e) => setNoteText(e.target.value)}
-                  placeholder="在此输入关于该词/句的学习笔记..."
+                  placeholder="输入学习笔记..."
                   className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-xs leading-relaxed focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all shadow-2xs font-sans resize-y"
                 />
               </div>
 
-              {/* AI Quick Trigger Banners */}
+              {/* Quick Trigger Banners */}
               {(!aiAnalysis || !aiTranslation) && (
                 <div className="space-y-1.5 pt-0.5">
                   {!aiAnalysis && !isAiLoading && (
                     <div className="px-2.5 py-1.5 bg-indigo-50/80 border border-indigo-100 rounded-lg flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-indigo-900">🤖 需要语境词义解析？</span>
+                      <span className="text-[11px] font-bold text-indigo-900">📖 需要词义释义？</span>
                       <button
                         type="button"
                         onClick={handleRunAI}
-                        className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                        className="px-2.5 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] shadow-2xs transition-all cursor-pointer flex items-center gap-1"
                       >
-                        <span>开始解析</span>
+                        <span>开始</span>
                       </button>
                     </div>
                   )}
                   {!aiTranslation && !isTranslating && (
                     <div className="px-2.5 py-1.5 bg-emerald-50/80 border border-emerald-100 rounded-lg flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-emerald-900">🌐 需要语境翻译剖析？</span>
+                      <span className="text-[11px] font-bold text-emerald-900">🌐 需要全文翻译？</span>
                       <button
                         type="button"
                         onClick={handleRunTranslation}
-                        className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                        className="px-2.5 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-2xs transition-all cursor-pointer flex items-center gap-1"
                       >
-                        <span>开始翻译</span>
+                        <span>开始</span>
                       </button>
                     </div>
                   )}
@@ -434,16 +434,16 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
               )}
             </div>
           ) : activeTab === 'translate' ? (
-            /* Tab 3: AI Translation */
+            /* Tab 3: Translation */
             <div className="space-y-4">
               {isTranslating ? (
                 <div className="p-8 text-center space-y-3">
                   <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                   <p className="font-bold text-slate-800 text-xs">
-                    AI 正在结合课文语境精准翻译与分析句法结构...
+                    正在翻译与句式分析...
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    正在生成：地道语境意译 · 直译对照 · 长难句句法剖析 · 核心词汇
+                    正在生成：译文 · 直译 · 句法拆解 · 重点词汇
                   </p>
                 </div>
               ) : translateError ? (
@@ -474,15 +474,15 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                       onClick={handleRunTranslation}
                       className="text-[11px] text-slate-400 hover:text-emerald-600 transition-colors shrink-0 cursor-pointer"
                     >
-                      🔄 重新翻译
+                      重新翻译
                     </button>
                   </div>
 
-                  {/* 1. Contextual Translation Card */}
+                  {/* 1. Translation Card */}
                   <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/90 rounded-xl space-y-2">
                     <div className="flex items-center gap-1.5 text-emerald-900 font-extrabold text-xs">
                       <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
-                      <span>📖 语境精准译文 (Contextual Translation)</span>
+                      <span>📖 译文</span>
                     </div>
                     <div className="text-emerald-950 font-bold text-sm leading-relaxed pt-0.5">
                       {aiTranslation.translation}
@@ -490,7 +490,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                     {aiTranslation.literalTranslation && (
                       <div className="pt-2 border-t border-emerald-200/60 mt-1">
                         <span className="text-[11px] font-semibold text-emerald-800 block mb-0.5">
-                          【直译对照】：
+                          【直译】：
                         </span>
                         <p className="text-emerald-900/90 leading-relaxed text-[11px]">
                           {aiTranslation.literalTranslation}
@@ -504,7 +504,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                     <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
                       <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                        <span>🧩 长难句与句法拆解 (Syntax Breakdown)</span>
+                        <span>🧩 句法拆解</span>
                       </div>
                       <p className="text-slate-700 leading-relaxed text-xs pt-0.5 whitespace-pre-line">
                         {aiTranslation.syntaxBreakdown}
@@ -517,7 +517,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                     <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-xl space-y-1.5">
                       <div className="font-bold text-purple-900 text-xs flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-purple-600"></span>
-                        <span>💡 核心词汇与短语 (Key Vocabulary)</span>
+                        <span>💡 重点词汇</span>
                       </div>
                       <div className="flex flex-wrap gap-2 pt-1">
                         {aiTranslation.keyVocabulary.map((item, idx) => (
@@ -540,36 +540,36 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                       onClick={handleInsertTranslationToNote}
                       className="w-full py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <span>📝 一键将翻译存入笔记 (并转到笔记编辑)</span>
+                      <span>📝 存入笔记</span>
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="p-8 text-center space-y-3">
                   <p className="text-slate-600 text-xs">
-                    尚未为此选段生成 AI 语境翻译。
+                    尚未生成翻译。
                   </p>
                   <button
                     type="button"
                     onClick={handleRunTranslation}
                     className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
                   >
-                    <span>🌐 立即开始 AI 语境翻译</span>
+                    <span>开始</span>
                   </button>
                 </div>
               )}
             </div>
           ) : (
-            /* Tab 2: AI Lexicon Analysis */
+            /* Tab 2: Lexicon Definition */
             <div className="space-y-4">
               {isAiLoading ? (
                 <div className="p-8 text-center space-y-3">
                   <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                   <p className="font-bold text-slate-800 text-xs">
-                    AI 正在结合课文原句深度剖析该词...
+                    正在解析词义...
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    正在分析：本文语境词性与释义 · 字典全词性义项 · 核心搭配与考点
+                    正在分析：本文释义 · 所有词义 · 常用搭配
                   </p>
                 </div>
               ) : aiError ? (
@@ -605,15 +605,15 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                       onClick={handleRunAI}
                       className="text-[11px] text-slate-400 hover:text-indigo-600 transition-colors"
                     >
-                      🔄 重新解析
+                      重新解析
                     </button>
                   </div>
 
-                  {/* 1. Contextual Meaning Card */}
+                  {/* 1. Meaning in Context */}
                   <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/90 rounded-xl space-y-1.5">
                     <div className="flex items-center gap-1.5 text-emerald-900 font-extrabold text-xs">
                       <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
-                      <span>📖 本文语境精准释义 (Contextual Meaning)</span>
+                      <span>📖 本文释义</span>
                     </div>
                     <div className="flex items-baseline gap-2 pt-0.5">
                       <span className="px-1.5 py-0.5 bg-emerald-600 text-white font-bold rounded text-[11px]">
@@ -635,7 +635,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                     <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                       <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                        <span>📚 该词的所有常见词义与词性 (All Meanings)</span>
+                        <span>📚 所有词义</span>
                       </div>
                       <div className="space-y-2 pt-0.5">
                         {aiAnalysis.allMeanings.map((m, idx) => (
@@ -664,7 +664,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                     <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-xl space-y-1.5">
                       <div className="font-bold text-purple-900 text-xs flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-purple-600"></span>
-                        <span>💡 核心搭配与考点 (Collocations & Points)</span>
+                        <span>💡 常用搭配</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {aiAnalysis.collocations.map((col, idx) => (
@@ -686,21 +686,21 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                       onClick={handleInsertAIToNote}
                       className="w-full py-2 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
                     >
-                      <span>📝 一键存入我的笔记 (并转到笔记编辑)</span>
+                      <span>📝 存入笔记</span>
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="p-8 text-center space-y-3">
                   <p className="text-slate-600 text-xs">
-                    尚未为此词生成 AI 深度释义。
+                    尚未生成释义。
                   </p>
                   <button
                     type="button"
                     onClick={handleRunAI}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
                   >
-                    <span>🤖 立即开始 AI 深度解析</span>
+                    <span>开始</span>
                   </button>
                 </div>
               )}
@@ -737,7 +737,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
               onClick={handleSave}
               className="px-3.5 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-all cursor-pointer"
             >
-              保存高亮与笔记
+              保存
             </button>
           </div>
         </div>

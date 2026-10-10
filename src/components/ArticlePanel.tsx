@@ -382,7 +382,7 @@ export const ArticlePanel = forwardRef<ArticlePanelHandle, ArticlePanelProps>(
                           e.stopPropagation();
                           onOpenAnnotation?.(activeAnnot, (e.currentTarget as HTMLElement).getBoundingClientRect());
                         }}
-                        title={activeAnnot.note ? `笔记: ${activeAnnot.note}` : '点击查看/编辑笔记、AI 释义与翻译'}
+                        title={activeAnnot.note ? `笔记: ${activeAnnot.note}` : '点击查看/编辑笔记、释义与翻译'}
                         className="cursor-pointer transition-all duration-150 rounded-xs select-text hover:opacity-90 inline"
                         style={{
                           backgroundColor: activeAnnot.color,
@@ -530,7 +530,7 @@ export const ArticlePanel = forwardRef<ArticlePanelHandle, ArticlePanelProps>(
                 e.stopPropagation();
                 onOpenAnnotation?.(activeAnnot, (e.currentTarget as HTMLElement).getBoundingClientRect());
               }}
-              title={activeAnnot.note ? `笔记: ${activeAnnot.note}` : '点击查看/编辑笔记、AI 释义与翻译'}
+              title={activeAnnot.note ? `笔记: ${activeAnnot.note}` : '点击查看/编辑笔记、释义与翻译'}
               className="cursor-pointer transition-all duration-150 rounded-xs select-text hover:opacity-90 inline"
               style={{
                 backgroundColor: activeAnnot.color,
@@ -631,7 +631,7 @@ export const ArticlePanel = forwardRef<ArticlePanelHandle, ArticlePanelProps>(
                 e.stopPropagation();
                 onOpenAnnotation?.(activeAnnot, (e.currentTarget as HTMLElement).getBoundingClientRect());
               }}
-              title={`笔记标记 (点击查看/编辑笔记、AI 释义与翻译) · 亦为 Q${activeRange.questionId} 原文依据`}
+              title={`笔记标记 (点击查看/编辑笔记、释义与翻译) · 亦为 Q${activeRange.questionId} 原文依据`}
               className="cursor-pointer transition-all duration-150 inline rounded-md select-text hover:opacity-90"
               style={{
                 color: areAnswersShown || isActive ? color.primary : undefined,
