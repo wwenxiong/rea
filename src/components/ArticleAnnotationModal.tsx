@@ -340,8 +340,8 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
 
         {/* Body Content */}
         <div className="p-3 overflow-y-auto flex-1 space-y-2.5 text-xs font-sans custom-scrollbar">
-          {/* Target Word in Sentence Quote */}
-          {contextSentence && (
+          {/* Target Word in Sentence Quote (only for explanation and translation) */}
+          {activeTab !== 'note' && contextSentence && (
             <div className="p-2 bg-slate-50 border border-slate-200/80 rounded-lg text-slate-600 italic leading-snug text-[11px]">
               <span className="font-bold text-slate-800 not-italic mr-1">例句:</span>
               "{contextSentence}"
@@ -349,89 +349,38 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
           )}
 
           {activeTab === 'note' ? (
-            /* Tab 1: Note & Color */
-            <div className="space-y-2.5">
-              {/* Highlight Color Info */}
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-slate-700">高亮颜色:</span>
-                <span
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border"
-                  style={{
-                    backgroundColor: '#FEF08A',
-                    borderColor: '#FACC15',
-                    color: '#854D0E',
-                  }}
-                >
-                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                  <span>经典暖黄</span>
-                </span>
-              </div>
-
-              {/* Note Textarea */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-bold text-slate-700">
-                    学习笔记:
-                  </label>
-                  <div className="flex items-center gap-1.5">
-                    {aiTranslation && (
-                      <button
-                        type="button"
-                        onClick={handleInsertTranslationToNote}
-                        className="text-[10px] text-emerald-600 hover:text-emerald-800 font-medium flex items-center gap-0.5 cursor-pointer"
-                      >
-                        <span>📋 填入翻译</span>
-                      </button>
-                    )}
-                    {aiAnalysis && (
-                      <button
-                        type="button"
-                        onClick={handleInsertAIToNote}
-                        className="text-[10px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-0.5 cursor-pointer"
-                      >
-                        <span>📋 填入释义</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <textarea
-                  rows={3}
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  placeholder="输入学习笔记..."
-                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-xs leading-relaxed focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all shadow-2xs font-sans resize-y"
-                />
-              </div>
-
-              {/* Quick Trigger Banners */}
-              {(!aiAnalysis || !aiTranslation) && (
-                <div className="space-y-1.5 pt-0.5">
-                  {!aiAnalysis && !isAiLoading && (
-                    <div className="px-2.5 py-1.5 bg-indigo-50/80 border border-indigo-100 rounded-lg flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-indigo-900">📖 需要词义释义？</span>
-                      <button
-                        type="button"
-                        onClick={handleRunAI}
-                        className="px-2.5 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] shadow-2xs transition-all cursor-pointer flex items-center gap-1"
-                      >
-                        <span>开始</span>
-                      </button>
-                    </div>
+            /* Tab 1: Note Input Only */
+            <div className="space-y-1.5">
+              {(aiTranslation || aiAnalysis) && (
+                <div className="flex items-center justify-end gap-2 pb-0.5">
+                  {aiTranslation && (
+                    <button
+                      type="button"
+                      onClick={handleInsertTranslationToNote}
+                      className="text-[11px] text-emerald-600 hover:text-emerald-800 font-medium flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span>📋 填入翻译</span>
+                    </button>
                   )}
-                  {!aiTranslation && !isTranslating && (
-                    <div className="px-2.5 py-1.5 bg-emerald-50/80 border border-emerald-100 rounded-lg flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-emerald-900">🌐 需要全文翻译？</span>
-                      <button
-                        type="button"
-                        onClick={handleRunTranslation}
-                        className="px-2.5 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-2xs transition-all cursor-pointer flex items-center gap-1"
-                      >
-                        <span>开始</span>
-                      </button>
-                    </div>
+                  {aiAnalysis && (
+                    <button
+                      type="button"
+                      onClick={handleInsertAIToNote}
+                      className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span>📋 填入释义</span>
+                    </button>
                   )}
                 </div>
               )}
+              <textarea
+                autoFocus
+                rows={5}
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder="输入笔记..."
+                className="w-full p-3 bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-200 rounded-xl text-slate-800 text-xs leading-relaxed focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all shadow-2xs font-sans resize-y"
+              />
             </div>
           ) : activeTab === 'translate' ? (
             /* Tab 3: Translation */
