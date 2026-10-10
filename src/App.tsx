@@ -10,7 +10,7 @@ import { CoursewareLibraryModal } from './components/CoursewareLibraryModal';
 import { AISolveModal } from './components/AISolveModal';
 import { useAppState } from './hooks/useAppState';
 import { sampleCourseware } from './data/sampleCourseware';
-import type { Courseware } from './types';
+import type { Courseware, ArticleAnnotation, AIWordAnalysis } from './types';
 import {
   getSavedCoursewares,
   saveCoursewareToStorage,
@@ -19,6 +19,8 @@ import {
 } from './utils/coursewareStorage';
 import { countUnsolvedQuestions } from './utils/aiSolveService';
 import { exportCoursewareToHTML } from './utils/htmlExporter';
+import { ArticleAnnotationModal, DEFAULT_HIGHLIGHT_COLOR } from './components/ArticleAnnotationModal';
+import { findExactOffset, extractSentenceContext } from './utils/textSelectionUtils';
 
 function App() {
   const {
@@ -30,6 +32,10 @@ function App() {
     setActiveQuestion,
     toggleAnswer,
     toggleAllAnswers,
+    selectOption,
+    submitAnswers,
+    resetAnswers,
+    toggleBlankReveal,
   } = useAppState();
 
   const [showImport, setShowImport] = useState(false);
@@ -178,6 +184,333 @@ function App() {
     }
   }, [state.courseware, state.fontSize]);
 
+  const handleSaveAnnotation = useCallback(
+    (
+      data: {
+        text: string;
+        paragraphIndex: number;
+        startOffset: number;
+        endOffset: number;
+        color: string;
+        note: string;
+        aiAnalysis?: AIWordAnalysis;
+      },
+      existingId?: string
+    ) => {
+      if (!state.courseware) return;
+
+      const currentAnnots = state.courseware.annotations || [];
+      let updatedAnnots: ArticleAnnotation[];
+
+      if (existingId) {
+        updatedAnnots = currentAnnots.map((a) =>
+          a.id === existingId
+            ? { ...a, ...data, updatedAt: Date.now() }
+            : a
+        );
+      } else {
+        const newAnnot: ArticleAnnotation = {
+          ...data,
+          id: `annot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        updatedAnnots = [...currentAnnots, newAnnot];
+      }
+
+      const updatedCw: Courseware = {
+        ...state.courseware,
+        annotations: updatedAnnots,
+        updatedAt: Date.now(),
+      };
+
+      setCourseware(updatedCw);
+      saveCoursewareToStorage(updatedCw);
+    },
+    [state.courseware, setCourseware]
+  );
+
+  const handleDeleteAnnotation = useCallback(
+    (id: string) => {
+      if (!state.courseware) return;
+
+      const currentAnnots = state.courseware.annotations || [];
+      const updatedAnnots = currentAnnots.filter((a) => a.id !== id);
+
+      const updatedCw: Courseware = {
+        ...state.courseware,
+        annotations: updatedAnnots,
+        updatedAt: Date.now(),
+      };
+
+      setCourseware(updatedCw);
+      saveCoursewareToStorage(updatedCw);
+    },
+    [state.courseware, setCourseware]
+  );
+
+  // Global Text Selection Bubble State
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const [bubbleState, setBubbleState] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    text: string;
+    paragraphIndex: number;
+    startOffset: number;
+    endOffset: number;
+    contextSentence: string;
+    paragraphText: string;
+    isArticle: boolean;
+    anchorRect?: { top: number; right: number; bottom: number; left: number; width?: number; height?: number };
+  }>({
+    visible: false,
+    x: 0,
+    y: 0,
+    text: '',
+    paragraphIndex: -1,
+    startOffset: -1,
+    endOffset: -1,
+    contextSentence: '',
+    paragraphText: '',
+    isArticle: false,
+  });
+
+  // Global Annotation & AI Modal State
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    targetText: string;
+    contextSentence: string;
+    paragraphText: string;
+    passageTitle: string;
+    paragraphIndex: number;
+    startOffset: number;
+    endOffset: number;
+    initialMode: 'note' | 'ai' | 'translate';
+    existingAnnotation: ArticleAnnotation | null;
+    anchorRect?: { top: number; right: number; bottom: number; left: number; width?: number; height?: number } | null;
+  }>({
+    isOpen: false,
+    targetText: '',
+    contextSentence: '',
+    paragraphText: '',
+    passageTitle: '',
+    paragraphIndex: -1,
+    startOffset: -1,
+    endOffset: -1,
+    initialMode: 'note',
+    existingAnnotation: null,
+    anchorRect: null,
+  });
+
+  const handleQuickHighlight = useCallback((color: string = DEFAULT_HIGHLIGHT_COLOR) => {
+    if (bubbleState.text) {
+      handleSaveAnnotation({
+        text: bubbleState.text,
+        paragraphIndex: bubbleState.paragraphIndex,
+        startOffset: bubbleState.startOffset,
+        endOffset: bubbleState.endOffset,
+        color,
+        note: '',
+      });
+    }
+    setBubbleState((prev) => ({ ...prev, visible: false }));
+    window.getSelection()?.removeAllRanges();
+  }, [bubbleState, handleSaveAnnotation]);
+
+  const handleOpenNoteModal = useCallback(() => {
+    setModalState({
+      isOpen: true,
+      targetText: bubbleState.text,
+      contextSentence: bubbleState.contextSentence,
+      paragraphText: bubbleState.paragraphText,
+      passageTitle: state.courseware?.title || '',
+      paragraphIndex: bubbleState.paragraphIndex,
+      startOffset: bubbleState.startOffset,
+      endOffset: bubbleState.endOffset,
+      initialMode: 'note',
+      existingAnnotation: null,
+      anchorRect: bubbleState.anchorRect || null,
+    });
+    setBubbleState((prev) => ({ ...prev, visible: false }));
+    window.getSelection()?.removeAllRanges();
+  }, [bubbleState, state.courseware]);
+
+  const handleOpenAIModal = useCallback(() => {
+    setModalState({
+      isOpen: true,
+      targetText: bubbleState.text,
+      contextSentence: bubbleState.contextSentence,
+      paragraphText: bubbleState.paragraphText,
+      passageTitle: state.courseware?.title || '',
+      paragraphIndex: bubbleState.paragraphIndex,
+      startOffset: bubbleState.startOffset,
+      endOffset: bubbleState.endOffset,
+      initialMode: 'ai',
+      existingAnnotation: null,
+      anchorRect: bubbleState.anchorRect || null,
+    });
+    setBubbleState((prev) => ({ ...prev, visible: false }));
+    window.getSelection()?.removeAllRanges();
+  }, [bubbleState, state.courseware]);
+
+  const handleOpenTranslateModal = useCallback(() => {
+    setModalState({
+      isOpen: true,
+      targetText: bubbleState.text,
+      contextSentence: bubbleState.contextSentence,
+      paragraphText: bubbleState.paragraphText,
+      passageTitle: state.courseware?.title || '',
+      paragraphIndex: bubbleState.paragraphIndex,
+      startOffset: bubbleState.startOffset,
+      endOffset: bubbleState.endOffset,
+      initialMode: 'translate',
+      existingAnnotation: null,
+      anchorRect: bubbleState.anchorRect || null,
+    });
+    setBubbleState((prev) => ({ ...prev, visible: false }));
+    window.getSelection()?.removeAllRanges();
+  }, [bubbleState, state.courseware]);
+
+  const handleOpenExistingAnnotation = useCallback((annot: ArticleAnnotation, anchorRect?: DOMRect) => {
+    if (!state.courseware) return;
+    const pText = annot.paragraphIndex >= 0 ? (state.courseware.paragraphs[annot.paragraphIndex] || '') : '';
+    const contextSentence = pText
+      ? extractSentenceContext(pText, Math.max(0, annot.startOffset), Math.max(0, annot.endOffset))
+      : annot.text;
+
+    let mode: 'note' | 'ai' | 'translate' = 'note';
+    if (annot.aiTranslation && !annot.aiAnalysis) {
+      mode = 'translate';
+    } else if (annot.aiAnalysis) {
+      mode = 'ai';
+    }
+
+    setModalState({
+      isOpen: true,
+      targetText: annot.text,
+      contextSentence,
+      paragraphText: pText,
+      passageTitle: state.courseware.title,
+      paragraphIndex: annot.paragraphIndex,
+      startOffset: annot.startOffset,
+      endOffset: annot.endOffset,
+      initialMode: mode,
+      existingAnnotation: annot,
+      anchorRect: anchorRect ? {
+        top: anchorRect.top,
+        right: anchorRect.right,
+        bottom: anchorRect.bottom,
+        left: anchorRect.left,
+        width: anchorRect.width,
+        height: anchorRect.height,
+      } : null,
+    });
+  }, [state.courseware]);
+
+  // Global mouseup and selection listener across entire workspace
+  useEffect(() => {
+    const handleWorkspaceMouseUp = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        !target ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable ||
+        target.closest('.annotation-modal-container') ||
+        target.closest('.annotation-bubble-container')
+      ) {
+        return;
+      }
+
+      setTimeout(() => {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed || !selection.rangeCount) {
+          return;
+        }
+
+        const selectedText = selection.toString().trim();
+        if (!selectedText || selectedText.length > 300) {
+          return;
+        }
+
+        const range = selection.getRangeAt(0);
+        if (!mainWorkspaceRef.current || !mainWorkspaceRef.current.contains(range.commonAncestorContainer)) {
+          return;
+        }
+
+        // Check if inside article paragraph (both standard and cloze paragraphs have data-paragraph-index)
+        let node: Node | null = range.commonAncestorContainer;
+        let paragraphEl: HTMLElement | null = null;
+        while (node && node !== mainWorkspaceRef.current) {
+          if (node instanceof HTMLElement && node.hasAttribute('data-paragraph-index')) {
+            paragraphEl = node;
+            break;
+          }
+          node = node.parentNode;
+        }
+
+        const rect = range.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return;
+
+        if (!paragraphEl || !state.courseware) {
+          return;
+        }
+
+        const pIdx = parseInt(paragraphEl.getAttribute('data-paragraph-index') || '-1', 10);
+        if (pIdx < 0 || pIdx >= state.courseware.paragraphs.length) {
+          return;
+        }
+
+        const originalParagraphText = state.courseware.paragraphs[pIdx];
+
+        const preRange = document.createRange();
+        preRange.selectNodeContents(paragraphEl);
+        preRange.setEnd(range.startContainer, range.startOffset);
+        const approxOffset = preRange.toString().length;
+
+        const { start, end } = findExactOffset(originalParagraphText, selectedText, approxOffset);
+        if (start === -1) return;
+
+        const contextSentence = extractSentenceContext(originalParagraphText, start, end);
+        setBubbleState({
+          visible: true,
+          x: rect.left + rect.width / 2,
+          y: rect.top - 8,
+          text: selectedText,
+          paragraphIndex: pIdx,
+          startOffset: start,
+          endOffset: end,
+          contextSentence,
+          paragraphText: originalParagraphText,
+          isArticle: true,
+          anchorRect: {
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+          },
+        });
+      }, 50);
+    };
+
+    const handleGlobalMouseDown = (e: MouseEvent) => {
+      if (bubbleRef.current && bubbleRef.current.contains(e.target as Node)) {
+        return;
+      }
+      setBubbleState((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+    };
+
+    document.addEventListener('mouseup', handleWorkspaceMouseUp);
+    document.addEventListener('mousedown', handleGlobalMouseDown);
+    return () => {
+      document.removeEventListener('mouseup', handleWorkspaceMouseUp);
+      document.removeEventListener('mousedown', handleGlobalMouseDown);
+    };
+  }, [state.courseware]);
+
   const unsolvedCount = state.courseware
     ? countUnsolvedQuestions(state.courseware).unsolved
     : 0;
@@ -239,7 +572,7 @@ function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-100 overflow-hidden">
+    <div className="h-screen flex flex-col bg-[#f4efe6] overflow-hidden">
       {/* Top Professional Toolbar */}
       <Toolbar
         title={state.courseware.title}
@@ -261,24 +594,36 @@ function App() {
       {/* Main Dual-Column Workspace with Draggable Divider */}
       <main
         ref={mainWorkspaceRef}
-        className={`flex-1 flex overflow-hidden relative ${
+        className={`flex-1 flex overflow-hidden relative p-2.5 md:p-3.5 gap-1.5 bg-[#f4efe6] ${
           isDraggingSplitter ? 'select-none cursor-col-resize' : ''
         }`}
       >
-        {/* Left: Article Panel */}
+        {/* Left: Article Panel Card */}
         <section
-          className="flex-none h-full overflow-hidden"
-          style={{ width: `${splitPercent}%` }}
+          className="flex-none h-full overflow-hidden flex flex-col"
+          style={{ width: `calc(${splitPercent}% - 6px)` }}
           aria-label="文章精读区"
         >
-          <ArticlePanel
-            ref={articleRef}
-            courseware={state.courseware}
-            fontSize={state.fontSize}
-            areAnswersShown={state.areAnswersShown}
-            activeQuestionId={state.activeQuestionId}
-            onEvidenceClick={handleEvidenceClick}
-          />
+          <div className="h-full flex flex-col bg-white rounded-2xl shadow-xs border border-[#e8e2d6] overflow-hidden">
+            <ArticlePanel
+              ref={articleRef}
+              courseware={state.courseware}
+              fontSize={state.fontSize}
+              areAnswersShown={state.areAnswersShown}
+              activeQuestionId={state.activeQuestionId}
+              userAnswers={state.userAnswers}
+              isSubmitted={state.isSubmitted}
+              revealedBlanks={state.revealedBlanks}
+              onEvidenceClick={handleEvidenceClick}
+              onBlankClick={(blankId) => {
+                toggleBlankReveal(blankId);
+                handleEvidenceClick(blankId);
+              }}
+              onSaveAnnotation={handleSaveAnnotation}
+              onDeleteAnnotation={handleDeleteAnnotation}
+              onOpenAnnotation={handleOpenExistingAnnotation}
+            />
+          </div>
         </section>
 
         {/* Resizable Divider Bar */}
@@ -295,18 +640,16 @@ function App() {
             } catch {}
           }}
           title="按住左右拖拽调整正文与习题比例，双击恢复默认比例"
-          className={`group relative flex-none w-2.5 cursor-col-resize flex items-center justify-center transition-colors z-20 border-x border-slate-200/80 ${
-            isDraggingSplitter
-              ? 'bg-indigo-500/90'
-              : 'bg-slate-100 hover:bg-indigo-400'
+          className={`group relative flex-none w-2 cursor-col-resize flex items-center justify-center transition-all z-20 my-auto h-28 hover:bg-[#e4ddd0] rounded-full mx-0.5 ${
+            isDraggingSplitter ? 'bg-[#ea580c]/20' : ''
           }`}
         >
           {/* Visual Grip Handle */}
           <div
-            className={`w-1 h-9 rounded-full transition-all ${
+            className={`w-1 h-8 rounded-full transition-all ${
               isDraggingSplitter
-                ? 'bg-white shadow-xs scale-y-125'
-                : 'bg-slate-400/70 group-hover:bg-white group-hover:scale-y-110'
+                ? 'bg-[#ea580c] scale-y-125'
+                : 'bg-stone-300 group-hover:bg-[#ea580c]'
             }`}
           />
 
@@ -318,24 +661,32 @@ function App() {
           )}
         </div>
 
-        {/* Right: Question Panel */}
+        {/* Right: Question Panel Card */}
         <section
-          className="flex-1 h-full overflow-hidden"
-          style={{ width: `${100 - splitPercent}%` }}
+          className="flex-1 h-full overflow-hidden flex flex-col min-w-0"
+          style={{ width: `calc(${100 - splitPercent}% - 6px)` }}
           aria-label="题目与解析区"
         >
-          <QuestionPanel
-            ref={questionRef}
-            questions={state.courseware.questions}
-            summaryGroup={state.courseware.summaryGroup}
-            activeQuestionId={state.activeQuestionId}
-            showAnswers={state.showAnswers}
-            areAnswersShown={state.areAnswersShown}
-            fontSize={state.fontSize}
-            onQuestionClick={handleQuestionClick}
-            onToggleAnswer={toggleAnswer}
-            onAISolve={() => setShowAISolve(true)}
-          />
+          <div className="h-full flex flex-col bg-white rounded-2xl shadow-xs border border-[#e8e2d6] overflow-hidden">
+            <QuestionPanel
+              ref={questionRef}
+              questions={state.courseware.questions}
+              summaryGroup={state.courseware.summaryGroup}
+              paragraphs={state.courseware.paragraphs}
+              activeQuestionId={state.activeQuestionId}
+              showAnswers={state.showAnswers}
+              areAnswersShown={state.areAnswersShown}
+              fontSize={state.fontSize}
+              userAnswers={state.userAnswers}
+              isSubmitted={state.isSubmitted}
+              onQuestionClick={handleQuestionClick}
+              onToggleAnswer={toggleAnswer}
+              onSelectOption={selectOption}
+              onSubmitAnswers={submitAnswers}
+              onResetAnswers={resetAnswers}
+              onAISolve={() => setShowAISolve(true)}
+            />
+          </div>
         </section>
       </main>
 
@@ -372,6 +723,94 @@ function App() {
         }}
         onSelectCourseware={handleSelectCourseware}
         onOpenImport={() => setShowImport(true)}
+      />
+
+      {/* Global Floating Selection Bubble */}
+      {bubbleState.visible && (
+        <div
+          ref={bubbleRef}
+          style={{
+            position: 'fixed',
+            left: `${Math.max(160, Math.min(window.innerWidth - 160, bubbleState.x))}px`,
+            top: `${Math.max(60, bubbleState.y)}px`,
+            transform: 'translate(-50%, -100%)',
+            zIndex: 60,
+          }}
+          className="annotation-bubble-container flex items-center gap-1.5 p-1.5 bg-slate-900/95 text-white rounded-2xl shadow-2xl border border-slate-700/80 backdrop-blur-md animate-scaleIn pointer-events-auto select-none"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {/* Action: Direct Yellow Highlight */}
+          <button
+            type="button"
+            onClick={() => handleQuickHighlight(DEFAULT_HIGHLIGHT_COLOR)}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-amber-300 hover:text-white bg-amber-500/20 hover:bg-amber-500/40 border border-amber-400/30 rounded-lg transition-all shadow-xs cursor-pointer"
+            title="一键添加黄色高亮标记"
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-300 shadow-xs inline-block"></span>
+            <span>高亮</span>
+          </button>
+
+          {/* Action: Write Note */}
+          <button
+            type="button"
+            onClick={handleOpenNoteModal}
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-200 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+          >
+            <span>📝</span>
+            <span>写笔记</span>
+          </button>
+
+          {/* Action: AI Lexicon Explanation */}
+          <button
+            type="button"
+            onClick={handleOpenAIModal}
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-indigo-300 hover:text-white bg-indigo-600/70 hover:bg-indigo-600 rounded-lg transition-all shadow-xs cursor-pointer"
+          >
+            <span>🤖</span>
+            <span>AI 释义</span>
+          </button>
+
+          {/* Action: AI Translation */}
+          <button
+            type="button"
+            onClick={handleOpenTranslateModal}
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-emerald-300 hover:text-white bg-emerald-600/70 hover:bg-emerald-600 rounded-lg transition-all shadow-xs cursor-pointer"
+          >
+            <span>🌐</span>
+            <span>AI 翻译</span>
+          </button>
+
+          {/* Close / Dismiss */}
+          <button
+            type="button"
+            onClick={() => setBubbleState((prev) => ({ ...prev, visible: false }))}
+            className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-slate-200 text-sm ml-0.5 rounded-full hover:bg-slate-800 cursor-pointer"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Global Article Annotation & AI Modal */}
+      <ArticleAnnotationModal
+        isOpen={modalState.isOpen}
+        targetText={modalState.targetText}
+        contextSentence={modalState.contextSentence}
+        paragraphText={modalState.paragraphText}
+        passageTitle={modalState.passageTitle}
+        paragraphIndex={modalState.paragraphIndex}
+        startOffset={modalState.startOffset}
+        endOffset={modalState.endOffset}
+        initialMode={modalState.initialMode}
+        existingAnnotation={modalState.existingAnnotation}
+        anchorRect={modalState.anchorRect}
+        onSave={(data, id) => {
+          handleSaveAnnotation(data, id);
+        }}
+        onDelete={(id) => {
+          handleDeleteAnnotation(id);
+        }}
+        onClose={() => setModalState((prev) => ({ ...prev, isOpen: false }))}
       />
     </div>
   );

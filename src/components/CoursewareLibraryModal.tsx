@@ -283,6 +283,14 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
                       <span className="flex items-center gap-1">
                         <strong className="text-slate-700 font-sans">{questionCount}</strong> 道题目
                       </span>
+                      {(cw.coursewareType === 'cloze' || cw.questions.some(q => q.type === 'cloze')) && (
+                        <>
+                          <span>•</span>
+                          <span className="text-orange-700 bg-orange-50 border border-orange-200/80 px-1.5 py-0.2 rounded font-sans font-bold">
+                            完形填空
+                          </span>
+                        </>
+                      )}
                       {cw.summaryGroup && (
                         <>
                           <span>•</span>

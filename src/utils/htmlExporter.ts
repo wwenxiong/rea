@@ -1,5 +1,7 @@
 import type { Courseware } from '../types';
 import { getQuestionColor } from '../constants/colors';
+import { resolveSummaryWord, buildWordBankAnalysis, parseWordBankOptions, extractWordBankFromPassage } from './summaryWordBank';
+import { getConciseAnnotationMeaning } from './textSelectionUtils';
 
 /**
  * Generates and downloads a self-contained, fully interactive static HTML file
@@ -59,6 +61,19 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
   const renderedParagraphs = courseware.paragraphs.map((p, pIdx) => {
     let pContent = escapeHtml(p);
 
+    // Replace Cloze blanks in passage
+    const clozePattern = /(_{2,}\s*\d+\s*_{2,}|\[\s*\d+\s*\]|\(\s*\d+\s*\)|（\s*\d+\s*）|\b\d+\s*_{2,}|\b\d+\s*\.{3,})/g;
+    pContent = pContent.replace(clozePattern, (matched) => {
+      const matchNum = matched.match(/\d+/);
+      if (!matchNum) return matched;
+      const blankId = parseInt(matchNum[0], 10);
+      const targetQ = courseware.questions.find((q) => q.id === blankId);
+      if (!targetQ) return matched;
+      const color = getQuestionColor(blankId - 1);
+      const ans = escapeHtml(targetQ.answer || '____');
+      return `<span class="cloze-blank-inline q-blank-${blankId}" data-qid="${blankId}" onclick="toggleQuestion(${blankId})" style="--q-color: ${color.primary}; --q-bg: ${color.bgLight}; --q-border: ${color.border};" title="第 ${blankId} 题空格 · 点击显示答案并定位题目"><span class="blank-num">${blankId}</span><span class="blank-placeholder">____</span><span class="blank-ans">${ans}</span></span>`;
+    });
+
     // Replace evidence text occurrences with data-highlight spans and Q badges
     for (const item of sortedItems) {
       if (item.evidenceText && item.evidenceText.trim()) {
@@ -81,6 +96,28 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
       }
     }
 
+    // Apply user annotations if any
+    if (courseware.annotations) {
+      const pAnnots = courseware.annotations.filter(a => a.paragraphIndex === pIdx && a.text);
+      for (const annot of pAnnots) {
+        if (pContent.includes(annot.text)) {
+          let tooltipParts: string[] = [];
+          if (annot.note) tooltipParts.push(`笔记: ${annot.note}`);
+          if (annot.aiTranslation) tooltipParts.push(`翻译: ${annot.aiTranslation.translation}`);
+          if (annot.aiAnalysis) tooltipParts.push(`释义: [${annot.aiAnalysis.contextualMeaning.pos}] ${annot.aiAnalysis.contextualMeaning.definition}`);
+          const noteTitle = tooltipParts.length > 0 ? ` title="${escapeHtml(tooltipParts.join(' | '))}"` : '';
+          const conciseMeaning = getConciseAnnotationMeaning(annot);
+          const noteBadge = conciseMeaning
+            ? `<span class="annot-gloss" style="border-color: ${annot.color};"><span class="annot-dot" style="background-color: ${annot.color};"></span>[${escapeHtml(conciseMeaning)}]</span>`
+            : '';
+          pContent = pContent.replaceAll(
+            annot.text,
+            `<mark class="user-annot" style="background-color: ${annot.color}; border-bottom: 2px solid ${annot.color};"${noteTitle}>${annot.text}${noteBadge}</mark>`
+          );
+        }
+      }
+    }
+
     return `
       <div class="paragraph-item" id="para-${pIdx}">
         <span class="para-badge">P${pIdx + 1}</span>
@@ -94,18 +131,24 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
   if (courseware.summaryGroup) {
     const sg = courseware.summaryGroup;
     let wordBankHtml = '';
-    if (sg.paragraphGuide && sg.paragraphGuide.startsWith('备选词表:')) {
-      const words = sg.paragraphGuide.replace(/^备选词表:\s*/, '').split('|').map(s => s.trim()).filter(Boolean);
+    let wbList = buildWordBankAnalysis(sg);
+    if (wbList.length === 0 && sg.items && sg.items.length > 0) {
+      const autoWordBankStr = extractWordBankFromPassage(sg, courseware.paragraphs);
+      if (autoWordBankStr) {
+        wbList = parseWordBankOptions(autoWordBankStr);
+      }
+    }
+    if (wbList.length > 0) {
       wordBankHtml = `
         <div class="word-bank-card">
-          <div class="word-bank-title">备选词表 (Word Bank):</div>
+          <div class="word-bank-title">备选词表 (Word Bank) · 共 ${wbList.length} 词</div>
           <div class="word-bank-grid">
-            ${words.map(w => {
-              const match = w.match(/^([A-Z])[\s.\)]*(.*)/i);
-              const letter = match ? match[1].toUpperCase() : '';
-              const text = match ? match[2].trim() : w;
-              return `<div class="word-chip"><span class="chip-letter">${letter}</span><span class="chip-text">${escapeHtml(text)}</span></div>`;
-            }).join('')}
+            ${wbList.map(item => `
+              <div class="word-chip">
+                <span class="chip-letter">${escapeHtml(item.letter)}</span>
+                <span class="chip-text">${escapeHtml(item.word)}</span>
+              </div>
+            `).join('')}
           </div>
         </div>
       `;
@@ -117,7 +160,8 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
         const qId = parseInt(idStr, 10);
         const item = sg.items.find(it => it.id === qId);
         const color = getQuestionColor(qId - 1);
-        const ans = item ? escapeHtml(item.answer || '____') : '____';
+        const wordAnswer = item ? resolveSummaryWord(item.answer || '', sg) : '____';
+        const ans = escapeHtml(wordAnswer);
         return `<span class="summary-blank-inline q-blank-${qId}" data-qid="${qId}" style="--q-color: ${color.primary};" onclick="toggleQuestion(${qId})" title="点击查看第 ${qId} 题答案解析"><span class="blank-num">${qId}</span><span class="blank-placeholder">____</span><span class="blank-ans">${ans}</span></span>`;
       });
       return `<p class="summary-body-p">${replaced}</p>`;
@@ -127,7 +171,8 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
     const sgItemsAnalysisHtml = sg.items.map((rawItem) => {
       // Find possible corresponding question in courseware.questions to ensure fullest data
       const qMatch = courseware.questions.find((q) => q.id === rawItem.id);
-      const answer = rawItem.answer || qMatch?.answer || '';
+      const rawAns = rawItem.answer || qMatch?.answer || '';
+      const answer = resolveSummaryWord(rawAns, sg);
       const evidenceText = rawItem.evidenceText || qMatch?.evidenceText || '';
       const explanation = rawItem.explanation || qMatch?.explanation || '';
       const color = getQuestionColor(rawItem.id - 1);
@@ -212,7 +257,21 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
     const color = getQuestionColor(q.id - 1);
     const optionsHtml = q.options && q.options.length > 0 ? `
       <div class="options-grid">
-        ${q.options.map(opt => `<div class="option-item">${escapeHtml(opt)}</div>`).join('')}
+        ${q.options.map((opt, optIdx) => {
+          const trimmed = opt.trim();
+          const matchLetter = trimmed.match(/^([A-D])[.、\s]?(.*)/i);
+          const letter = matchLetter ? matchLetter[1].toUpperCase() : String.fromCharCode(65 + optIdx);
+          const content = matchLetter ? matchLetter[2].trim() : trimmed;
+          const cleanCorrectAns = (q.answer || '').trim().charAt(0).toUpperCase();
+          const isCorrect = cleanCorrectAns === letter || (q.answer && (q.answer.trim().toLowerCase() === trimmed.toLowerCase() || q.answer.trim().toLowerCase() === content.toLowerCase()));
+          return `
+            <div class="option-item ${isCorrect ? 'is-correct' : ''}">
+              <span class="opt-badge">${letter}</span>
+              <span class="opt-text">${escapeHtml(content || trimmed)}</span>
+              ${isCorrect ? `<span class="opt-correct-tag">✓ 正确答案</span>` : ''}
+            </div>
+          `;
+        }).join('')}
       </div>
     ` : '';
 
@@ -245,11 +304,16 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
   // Prepare Answer Key Pills HTML
   const answerKeyPillsHtml = sortedItems.map(item => {
     const color = getQuestionColor(item.id - 1);
+    const isSummaryItem = courseware.summaryGroup?.items.some(it => it.id === item.id);
+    const resolvedWord = isSummaryItem && courseware.summaryGroup
+      ? resolveSummaryWord(item.answer || '', courseware.summaryGroup)
+      : (item.answer || '____');
+
     return `
       <button type="button" class="key-pill" data-qid="${item.id}" onclick="toggleQuestion(${item.id})"
         style="background-color: ${color.bgLight}; color: ${color.primary}; border-color: ${color.border};">
         <span class="pill-id">${item.id}</span>
-        <span class="pill-ans">${escapeHtml(item.answer || '____')}</span>
+        <span class="pill-ans">${escapeHtml(resolvedWord)}</span>
       </button>
     `;
   }).join('\n');
@@ -476,6 +540,42 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
     .para-text {
       font-size: var(--base-font-size); line-height: 1.85; color: #1e293b; text-align: justify;
     }
+    .user-annot {
+      padding: 1px 3px;
+      border-radius: 4px;
+      color: inherit;
+      cursor: help;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .annot-gloss {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      margin: 0 3px;
+      padding: 1px 5px;
+      font-size: 11px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-weight: 500;
+      color: #1e293b;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid;
+      border-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      vertical-align: baseline;
+      user-select: none;
+    }
+    .annot-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 9999px;
+      flex-shrink: 0;
+      display: inline-block;
+    }
+    .annot-badge {
+      font-size: 10px;
+      margin-left: 2px;
+      vertical-align: 1px;
+    }
     .evidence-span {
       font-weight: inherit; transition: all 0.2s ease;
       padding: 0 2px; border-radius: 4px;
@@ -486,10 +586,12 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
     }
     body.show-all-answers .evidence-span,
     .evidence-span.active {
-      font-weight: 800 !important;
+      font-weight: 700 !important;
       color: var(--q-color) !important;
       background-color: var(--q-bg) !important;
-      border-bottom: 2px solid var(--q-color);
+      border-bottom: 2px solid var(--q-border) !important;
+      border-radius: 4px;
+      padding: 1px 3px;
     }
     .q-badge-tag {
       display: none;
@@ -503,10 +605,10 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
       padding: 0 4px;
       height: 16px;
       line-height: 16px;
-      border-radius: 3px;
+      border-radius: 4px;
       margin-right: 4px;
       vertical-align: 1px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
       user-select: none;
     }
     body.show-all-answers .q-badge-tag,
@@ -527,7 +629,7 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
     }
     .badge-tag {
       font-size: 11px; font-weight: 600; padding: 2px 8px;
-      border-radius: 6px; background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca;
+      border-radius: 6px; background: #fdf2f5; color: #b8556d; border: 1px solid #f8b4c8;
     }
     .card-subtitle { font-size: 11px; color: #64748b; font-style: italic; margin-top: 4px; }
 
@@ -542,8 +644,10 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
     }
     .word-chip {
       background: white; border: 1px solid #e2e8f0; border-radius: 6px;
-      padding: 4px 8px; display: flex; align-items: center; gap: 6px; font-size: 11px;
+      padding: 4px 8px; display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px;
+      transition: all 0.15s ease;
     }
+    .word-chip:hover { border-color: #93c5fd; background: #f0f7ff; }
     .chip-letter { font-weight: 800; color: #2563eb; }
 
     /* Summary Passage */
@@ -552,19 +656,26 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
       color: #334155; margin: 12px 0 8px 0; padding: 4px;
       background: #f8fafc; border-radius: 6px;
     }
-    .summary-body-p { font-size: calc(var(--base-font-size) - 2px); line-height: 2; margin-bottom: 8px; color: #1e293b; }
-    .summary-blank-inline {
+    .summary-blank-inline,
+    .cloze-blank-inline {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 1px 8px; margin: 0 3px; border-radius: 6px;
       border-bottom: 2px solid var(--q-color, #94a3b8);
-      background: #f8fafc; cursor: pointer; user-select: none; font-size: calc(var(--base-font-size) - 4px);
+      background: var(--q-bg, #f8fafc); cursor: pointer; user-select: none; font-size: calc(var(--base-font-size) - 4px);
+      transition: all 0.2s ease;
+    }
+    .cloze-blank-inline:hover {
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      transform: translateY(-1px);
     }
     .blank-num { font-size: 11px; font-weight: 800; color: #64748b; }
     .blank-placeholder { color: #94a3b8; font-weight: normal; letter-spacing: 2px; }
     .blank-ans { font-weight: 800; color: var(--q-color); }
     body:not(.show-all-answers) .blank-ans { display: none; }
-    body:not(.show-all-answers) .summary-blank-inline.revealed .blank-ans { display: inline; }
-    body:not(.show-all-answers) .summary-blank-inline.revealed .blank-placeholder { display: none; }
+    body:not(.show-all-answers) .summary-blank-inline.revealed .blank-ans,
+    body:not(.show-all-answers) .cloze-blank-inline.revealed .blank-ans { display: inline; }
+    body:not(.show-all-answers) .summary-blank-inline.revealed .blank-placeholder,
+    body:not(.show-all-answers) .cloze-blank-inline.revealed .blank-placeholder { display: none; }
     body.show-all-answers .blank-placeholder { display: none; }
     body.show-all-answers .blank-ans { display: inline; }
 
@@ -615,7 +726,37 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
     .options-grid {
       margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: calc(var(--base-font-size) - 4px); color: #475569;
     }
-    .option-item { padding: 4px 8px; background: #f8fafc; border-radius: 6px; }
+    .option-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 8px; font-size: calc(var(--base-font-size) - 4px);
+      transition: all 0.2s ease;
+    }
+    .opt-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: 4px; font-weight: 800;
+      background: #e2e8f0; color: #475569; font-size: 11px; flex-shrink: 0;
+    }
+    .opt-text { flex: 1; }
+    .opt-correct-tag {
+      display: none; font-size: 10px; font-weight: 800;
+      color: #166534; background: #dcfce7; border: 1px solid #86efac;
+      padding: 1px 6px; border-radius: 4px; margin-left: auto;
+    }
+    .question-card.active .option-item.is-correct,
+    body.show-all-answers .option-item.is-correct {
+      background: #f0fbf5 !important; border-color: #3c986d !important;
+      color: #166534 !important; font-weight: 700 !important;
+      box-shadow: 0 1px 3px rgba(60, 152, 109, 0.15);
+    }
+    .question-card.active .option-item.is-correct .opt-badge,
+    body.show-all-answers .option-item.is-correct .opt-badge {
+      background: #3c986d !important; color: #ffffff !important;
+    }
+    .question-card.active .option-item.is-correct .opt-correct-tag,
+    body.show-all-answers .option-item.is-correct .opt-correct-tag {
+      display: inline-flex;
+    }
 
     /* Answer Drawer */
     .q-answer-drawer {
@@ -876,7 +1017,7 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
       } else {
         // Reveal & Scroll
         activeQuestionId = qid;
-        document.querySelectorAll('.summary-blank-inline').forEach(el => el.classList.remove('revealed'));
+        document.querySelectorAll('.summary-blank-inline, .cloze-blank-inline').forEach(el => el.classList.remove('revealed'));
         document.querySelectorAll('.question-card, .summary-item-card').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.evidence-span').forEach(el => el.classList.remove('active'));
 

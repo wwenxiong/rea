@@ -1,4 +1,5 @@
 import type { Question, SummaryGroup } from '../types';
+import { resolveSummaryWord, extractWordBankFromPassage } from './summaryWordBank';
 
 export interface AIServiceConfig {
   apiKey: string;
@@ -159,9 +160,14 @@ export async function parseExamImagesWithVision(
 
   onProgress?.('正在处理多模态图像并构建请求...');
 
-  const instructionText = `You are an educational exam parser. Extract the full reading passage and all questions from these sequential images into JSON.
+  const instructionText = `You are an educational exam parser. Extract the full reading passage or cloze test and all questions from these sequential images into JSON.
 Output valid JSON only, starting with { and ending with }. Do not write pre-analysis or chain of thought.
-If questions include a summary completion / cloze passage (e.g. Questions 1-7 with blanks like [1], [2]...), extract it into "summaryGroup". Non-summary questions go into "questions".
+If the exam is a Cloze Test (完形填空), keep the numbered blanks in the passage paragraphs (e.g. ____1____ or [1], [2]...), and extract the choice questions (1..N with options A, B, C, D) into "questions".
+If questions include a summary completion passage (e.g. Questions 1-7 with blanks like [1], [2]...):
+- Extract it into "summaryGroup". Non-summary questions go into "questions".
+- For "paragraphGuide": If the exam image contains a candidate Word Bank, format as: "备选词表: A [word1] | B [word2] | ...". CRITICAL REQUIREMENT: If NO Word Bank is printed in the exam, YOU MUST EXTRACT A CANDIDATE WORD BANK DIRECTLY FROM THE PASSAGE (all correct answer words for the blanks + 2-4 plausible distractor words from the reading passage text, sorted alphabetically), formatted as: "备选词表: A [word1] | B [word2] | ...".
+- For each item in "summaryGroup.items", "answer" must be the exact English word itself, NEVER just an option letter like "A" or "H".
+
 JSON Structure:
 {
   "title": "Passage title",
@@ -169,8 +175,9 @@ JSON Structure:
   "paragraphs": ["First paragraph text...", "Second paragraph text..."],
   "summaryGroup": {
     "idRange": "1–7",
-    "instruction": "Complete the summary below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
-    "paragraphGuide": "本题段落号对照: 第1、2题 → 段落 2 | ...",
+    "title": "Summary title",
+    "instruction": "Complete the summary below.",
+    "paragraphGuide": "备选词表: A disadvantage | B quality | C retirement...",
     "paragraphs": ["Summary text with blanks as [1], [2], [3]..."],
     "items": [
       {
@@ -191,7 +198,7 @@ JSON Structure:
       "explanation": "中文解析"
     }
   ]
-}`;
+};`;
 
   const contentItems: Array<
     | { type: 'text'; text: string }
@@ -291,6 +298,50 @@ JSON Structure:
     throw new Error('未能从模型返回的数据中提取出文章段落，请重试');
   }
 
+  let summaryGroup: SummaryGroup | undefined = undefined;
+  if (parsed.summaryGroup && Array.isArray(parsed.summaryGroup.items)) {
+    const rawSG = parsed.summaryGroup;
+    let paragraphGuide = rawSG.paragraphGuide;
+
+    const tempSGForResolve: SummaryGroup = {
+      idRange: rawSG.idRange || '1–9',
+      title: rawSG.title,
+      instruction: rawSG.instruction || 'Complete the summary below.',
+      paragraphGuide,
+      paragraphs: Array.isArray(rawSG.paragraphs) ? rawSG.paragraphs : [],
+      items: [],
+    };
+
+    const items = rawSG.items.map((it: any) => {
+      const rawAns = String(it.answer || '').trim();
+      return {
+        id: typeof it.id === 'number' ? it.id : 1,
+        answer: resolveSummaryWord(rawAns, tempSGForResolve) || rawAns,
+        explanation: it.explanation || it.analysis || '',
+        evidenceText: it.evidenceText || it.evidence || '',
+      };
+    });
+
+    if (!paragraphGuide || !paragraphGuide.startsWith('备选词表:')) {
+      const fallbackGuide = extractWordBankFromPassage(
+        { idRange: rawSG.idRange || '', instruction: rawSG.instruction || '', paragraphs: rawSG.paragraphs || [], items },
+        paragraphs
+      );
+      if (fallbackGuide) {
+        paragraphGuide = fallbackGuide;
+      }
+    }
+
+    summaryGroup = {
+      idRange: rawSG.idRange || '1–9',
+      title: rawSG.title,
+      instruction: rawSG.instruction || 'Complete the summary below.',
+      paragraphGuide,
+      paragraphs: Array.isArray(rawSG.paragraphs) ? rawSG.paragraphs : [],
+      items,
+    };
+  }
+
   // Normalize questions
   let rawQuestions: any[] = [];
   if (Array.isArray(parsed.questions)) {
@@ -315,6 +366,7 @@ JSON Structure:
     title: parsed.title || '阅读理解精读课件',
     subtitle: parsed.subtitle || '',
     paragraphs,
+    summaryGroup,
     questions,
   };
 }

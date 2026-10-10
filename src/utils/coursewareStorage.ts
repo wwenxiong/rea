@@ -1,5 +1,5 @@
 import type { Courseware } from '../types';
-import { sampleCourseware } from '../data/sampleCourseware';
+import { sampleCourseware, sampleClozeCourseware, sampleWordBankCourseware } from '../data/sampleCourseware';
 
 const STORAGE_KEY = 'rc_saved_coursewares_v1';
 const ACTIVE_ID_KEY = 'rc_active_courseware_id_v1';
@@ -8,18 +8,30 @@ export function getSavedCoursewares(): Courseware[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      const initial = [sampleCourseware];
+      const initial = [sampleCourseware, sampleWordBankCourseware, sampleClozeCourseware];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
       return initial;
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
+      let changed = false;
+      if (!parsed.some((c: Courseware) => c.id === sampleWordBankCourseware.id)) {
+        parsed.splice(1, 0, sampleWordBankCourseware);
+        changed = true;
+      }
+      if (!parsed.some((c: Courseware) => c.id === sampleClozeCourseware.id)) {
+        parsed.push(sampleClozeCourseware);
+        changed = true;
+      }
+      if (changed) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      }
       return parsed;
     }
-    return [sampleCourseware];
+    return [sampleCourseware, sampleWordBankCourseware, sampleClozeCourseware];
   } catch (e) {
     console.error('Failed to load coursewares from localStorage', e);
-    return [sampleCourseware];
+    return [sampleCourseware, sampleWordBankCourseware, sampleClozeCourseware];
   }
 }
 

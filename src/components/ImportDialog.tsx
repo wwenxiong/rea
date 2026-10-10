@@ -11,6 +11,7 @@ import {
   parseExamTextWithAI,
 } from '../utils/aiSolveService';
 import { sampleCourseware } from '../data/sampleCourseware';
+import { resolveSummaryWord, buildWordBankAnalysis, extractWordBankFromPassage } from '../utils/summaryWordBank';
 
 interface ImportDialogProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ interface ImportDialogProps {
 interface ParsedResult {
   title: string;
   subtitle: string;
+  coursewareType?: 'reading' | 'cloze';
   paragraphs: string[];
   questions: Omit<Question, 'evidenceRanges'>[];
   summaryGroup?: SummaryGroup;
@@ -314,17 +316,41 @@ export function parseExamText(rawText: string): ParsedResult {
         const expMatch = line.match(explanationPattern);
         const eviMatch = line.match(evidencePattern);
 
+        // Check if current line contains multiple inline options like "A used  B broke  C built  D bought"
+        const inlineOpts = [...line.matchAll(/(?:^|\s+)([A-Da-d])[.\u3001\uff0e\)\s]+([^A-Da-d\t\n]+?)(?=(?:\s+[A-Da-d][.\u3001\uff0e\)\s])|$)/g)];
+
         if (qMatch) {
           if (currentQ) questions.push(currentQ);
+          const qId = parseInt(qMatch[1], 10);
+          const remainder = qMatch[2] || '';
+
+          // Check if options are on the same line as the question number: "1. A. used B. broke..."
+          const remainderOpts = [...remainder.matchAll(/(?:^|\s+)([A-Da-d])[.\u3001\uff0e\)\s]+([^A-Da-d\t\n]+?)(?=(?:\s+[A-Da-d][.\u3001\uff0e\)\s])|$)/g)];
+          const extractedOpts: string[] = [];
+          let cleanStem = remainder;
+
+          if (remainderOpts.length >= 2) {
+            remainderOpts.forEach((m) => {
+              extractedOpts.push(`${m[1].toUpperCase()}. ${m[2].trim()}`);
+            });
+            // Stem is empty or just the question prompt in cloze tests
+            cleanStem = `[${qId}] 完形填空`;
+          }
+
           currentQ = {
-            id: parseInt(qMatch[1], 10),
-            stem: qMatch[2] || '',
-            options: defaultOptions.length > 0 ? [...defaultOptions] : [],
+            id: qId,
+            stem: cleanStem,
+            options: extractedOpts.length > 0 ? extractedOpts : (defaultOptions.length > 0 ? [...defaultOptions] : []),
             answer: '',
             explanation: '',
             evidenceText: '',
             type: 'single',
           };
+        } else if (inlineOpts.length >= 2 && currentQ) {
+          // A line with 2 or more options, e.g. "A used   B broke   C built   D bought"
+          inlineOpts.forEach((m) => {
+            currentQ?.options.push(`${m[1].toUpperCase()}. ${m[2].trim()}`);
+          });
         } else if (optMatch && currentQ) {
           if (
             defaultOptions.length > 0 &&
@@ -333,7 +359,7 @@ export function parseExamText(rawText: string): ParsedResult {
           ) {
             currentQ.options = [];
           }
-          currentQ.options.push(`${optMatch[1].toUpperCase()}. ${optMatch[2]}`);
+          currentQ.options.push(`${optMatch[1].toUpperCase()}. ${optMatch[2].trim()}`);
         } else if (ansMatch && currentQ) {
           currentQ.answer = ansMatch[1].trim();
         } else if (expMatch && currentQ) {
@@ -349,8 +375,70 @@ export function parseExamText(rawText: string): ParsedResult {
     }
   }
 
+  // Bulk answer parsing fallback (e.g. "参考答案: 1-5 CADBC 6-10 DCABA" or "1. C 2. A 3. B")
+  const fullText = rawText;
+  const bulkAnsBlockMatch = fullText.match(/(?:(?:参考)?答案|Key(?:s)?|Answers?)\s*[:：\n]([\s\S]+?)(?:\n\s*\n|$)/i);
+  if (bulkAnsBlockMatch) {
+    const ansBlock = bulkAnsBlockMatch[1];
+    // 1. Range format: "1-5 CABCD" or "1-5: A B C D A"
+    const rangeAnsMatches = [...ansBlock.matchAll(/(\d+)[\s–\-~至到](\d+)[:\s]+([A-D\s]+)/gi)];
+    for (const rMatch of rangeAnsMatches) {
+      const startId = parseInt(rMatch[1], 10);
+      const letters = rMatch[3].replace(/[^A-Za-z]/g, '').toUpperCase().split('');
+      letters.forEach((letter, offset) => {
+        const targetQ = questions.find((q) => q.id === startId + offset);
+        if (targetQ && !targetQ.answer) {
+          targetQ.answer = letter;
+        }
+      });
+    }
+
+    // 2. Pair format: "1. A  2. B" or "1 A 2 B"
+    const pairMatches = [...ansBlock.matchAll(/(?:^|\s+)(\d+)[\s.\u3001\uff0e)]+([A-D])/gi)];
+    for (const pMatch of pairMatches) {
+      const id = parseInt(pMatch[1], 10);
+      const letter = pMatch[2].toUpperCase();
+      const targetQ = questions.find((q) => q.id === id);
+      if (targetQ && !targetQ.answer) {
+        targetQ.answer = letter;
+      }
+    }
+  }
+
+  // Detect Cloze Test (完形填空)
+  const rawArticleStr = paragraphs.join('\n');
+  const hasArticleBlanks = /(?:_{2,}\s*\d+\s*_{2,}|\[\s*\d+\s*\]|\(\s*\d+\s*\)|（\s*\d+\s*）|\b\d+\s*_{2,}|\b\d+\s*\.{3,})/.test(rawArticleStr);
+  const isClozeKeyword = /完形填空|完型填空|Cloze/i.test(`${title} ${subtitle} ${rawText}`);
+  const isClozeType = isClozeKeyword || (hasArticleBlanks && questions.length > 0 && questions.every(q => q.options.length >= 2));
+
+  let coursewareType: 'reading' | 'cloze' = isClozeType ? 'cloze' : 'reading';
+
+  if (isClozeType) {
+    for (const q of questions) {
+      q.type = 'cloze';
+      if (!q.stem || q.stem.includes('[') && q.stem.includes(']')) {
+        q.stem = `第 ${q.id} 题`;
+      }
+      // If evidenceText not specified, locate the sentence containing the blank in paragraphs
+      if (!q.evidenceText) {
+        const blankRegex = new RegExp(`(?:_{2,}\\s*${q.id}\\s*_{2,}|\\[\\s*${q.id}\\s*\\]|\\(\\s*${q.id}\\s*\\)|（\\s*${q.id}\\s*）|\\b${q.id}\\s*_{2,}|\\b${q.id}\\s*\\.{3,})`);
+        for (const p of paragraphs) {
+          if (blankRegex.test(p)) {
+            // Find the sentence containing this blank
+            const sentences = p.split(/(?<=[.!?。！？])\s+/);
+            const matchingSentence = sentences.find(s => blankRegex.test(s));
+            if (matchingSentence) {
+              q.evidenceText = matchingSentence.trim();
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
   questions.sort((a, b) => a.id - b.id);
-  return { title, subtitle, paragraphs, summaryGroup, questions };
+  return { title, subtitle, coursewareType, paragraphs, summaryGroup, questions };
 }
 
 export const ImportDialog: React.FC<ImportDialogProps> = ({
@@ -670,27 +758,40 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
 
     const questions: Question[] = parsed.questions.map((q) => ({
       ...q,
+      answer: q.type === 'summary' && parsed.summaryGroup ? resolveSummaryWord(q.answer, parsed.summaryGroup) : q.answer,
       evidenceRanges: findEvidenceRanges(parsed.paragraphs, q.evidenceText),
     }));
 
     let summaryGroup: SummaryGroup | undefined = undefined;
     if (parsed.summaryGroup) {
+      let sg = parsed.summaryGroup;
+      if (!sg.paragraphGuide || !sg.paragraphGuide.startsWith('备选词表:')) {
+        const fallbackGuide = extractWordBankFromPassage(sg, parsed.paragraphs);
+        if (fallbackGuide) {
+          sg = { ...sg, paragraphGuide: fallbackGuide };
+        }
+      }
       summaryGroup = {
-        ...parsed.summaryGroup,
-        items: parsed.summaryGroup.items.map((it) => ({
+        ...sg,
+        items: sg.items.map((it) => ({
           ...it,
+          answer: resolveSummaryWord(it.answer, sg),
           evidenceRanges:
             it.evidenceRanges && it.evidenceRanges.length > 0
               ? it.evidenceRanges
               : findEvidenceRanges(parsed.paragraphs, it.evidenceText),
         })),
+        wordBankAnalysis: buildWordBankAnalysis(sg),
       };
     }
 
+    const isClozeType = parsed.coursewareType === 'cloze' || parsed.questions.some(q => q.type === 'cloze');
+
     const courseware: Courseware = {
       id: `cw-${Date.now()}`,
-      title: parsed.title || '阅读理解精读课件',
-      subtitle: parsed.subtitle || '教师导入课件',
+      title: parsed.title || (isClozeType ? '完形填空精读课件' : '阅读理解精读课件'),
+      subtitle: parsed.subtitle || (isClozeType ? 'Cloze Test · 完型填空' : '教师导入课件'),
+      coursewareType: isClozeType ? 'cloze' : 'reading',
       paragraphs: parsed.paragraphs,
       questions,
       summaryGroup,
@@ -1124,12 +1225,26 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs">
+                <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs">
                   <div>
                     <span className="text-slate-400 block">课件标题</span>
                     <span className="font-bold text-slate-800 text-sm mt-0.5 truncate block">
                       {parsed.title || '（未识别，将使用默认标题）'}
                     </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">识别题型</span>
+                    <div className="mt-1">
+                      {parsed.coursewareType === 'cloze' || parsed.questions.some(q => q.type === 'cloze') ? (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          完形填空 (Cloze)
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          常规阅读理解
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <span className="text-slate-400 block">识别段落数</span>

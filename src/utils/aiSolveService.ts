@@ -1,6 +1,6 @@
 import type { Courseware, Question, HighlightRange, SummaryGroup, SummaryItem } from '../types';
-import { fetchWithAutoProxy, loadSavedAIConfig } from './aiVisionService';
-import type { AIServiceConfig } from './aiVisionService';
+import { fetchWithAutoProxy, loadSavedAIConfig, type AIServiceConfig } from './aiVisionService';
+import { extractWordBankFromPassage, resolveSummaryWord } from './summaryWordBank';
 
 export interface AISolveItem {
   id: number;
@@ -216,6 +216,8 @@ export async function solvePaperWithAI(
     questionsPromptText += `Instructions: ${courseware.summaryGroup.instruction}\n`;
     if (courseware.summaryGroup.paragraphGuide) {
       questionsPromptText += `Reference / Word Bank: ${courseware.summaryGroup.paragraphGuide}\n`;
+    } else {
+      questionsPromptText += `Notice: If this summary completion has no provided Word Bank, you MUST synthesize a candidate Word Bank ("summaryWordBank") extracted from the passage (all correct answer words for blanks + 2–4 plausible distractors from the passage) formatted as: "备选词表: A ... | B ..."\n`;
     }
     questionsPromptText += `Summary Text:\n${courseware.summaryGroup.paragraphs.join('\n')}\n`;
     questionsPromptText += `Blanks to solve: ${courseware.summaryGroup.items.map((it) => `[${it.id}]`).join(', ')}\n`;
@@ -242,21 +244,28 @@ Your mission is to read the provided passage and solve all the questions with 10
 CRITICAL INSTRUCTIONS:
 1. For each question:
    - "answer":
-     * For multiple-choice questions: Output the single uppercase option letter (e.g., "A", "B", "C", "D").
+     * For multiple-choice questions & cloze tests: Output the single uppercase option letter (e.g., "A", "B", "C", "D").
      * For YES / NO / NOT GIVEN or TRUE / FALSE / NOT GIVEN: Output "YES", "NO", or "NOT GIVEN" (or corresponding option letter A/B/C).
-     * For summary completion / cloze: If a Word Bank (A–Q) is provided, output the option letter (e.g. "H") or option letter + term (e.g. "H"). If no word bank is provided, output the exact verbatim word(s) taken directly from the passage, strictly obeying word limit constraints (e.g. "NO MORE THAN TWO WORDS").
+     * For summary completion / fill-in: Output the actual English word itself (e.g. "disadvantage"), strictly obeying word limit constraints. NEVER output just the option letter or number code like "H" or "1.".
    - "paragraphNumber": An integer (1-based, e.g. 1, 2, 3...) indicating the exact [Paragraph X] in the passage where the evidence is found.
-   - "evidenceText": **EXTREMELY IMPORTANT**: Must be the EXACT VERBATIM sentence copied directly from the passage text with 100% fidelity. Do NOT alter words, grammar, or punctuation, because an automated string-matching algorithm will scan the passage text for this exact substring to highlight it!
+   - "evidenceText": **EXTREMELY IMPORTANT**: Must be the EXACT VERBATIM sentence copied directly from the passage text with 100% fidelity (for Cloze, the sentence containing that blank). Do NOT alter words, grammar, or punctuation, because an automated string-matching algorithm will scan the passage text for this exact substring to highlight it!
    - "explanation": In clear, pedagogical, high-quality Chinese (简体中文). Explain the logic of the question, how the passage evidence sentence proves the answer (identifying synonyms, paraphrases, and keywords), and briefly clarify why other options are incorrect if applicable.
 
-2. Return valid JSON only. Do NOT wrap in markdown explanation before or after. Start directly with { and end with }.
+2. Summary Completion Word Bank:
+   If the exam includes a Summary Completion question group ("summaryGroup"):
+   - If a Word Bank is already provided, use it.
+   - If NO Word Bank was originally provided in the uploaded exam, YOU MUST EXTRACT A CANDIDATE WORD BANK DIRECTLY FROM THE PASSAGE: include the correct answer words for all blanks plus 2–4 plausible distractor vocabulary words directly extracted from the reading passage text, sorted alphabetically and formatted as: "备选词表: A word1 | B word2 | C word3 | ...".
+   - Return this in the JSON under the field "summaryWordBank".
+
+3. Return valid JSON only. Do NOT wrap in markdown explanation before or after. Start directly with { and end with }.
 
 JSON Format Structure:
 {
+  "summaryWordBank": "备选词表: A disadvantage | B quality | C retirement...",
   "items": [
     {
       "id": 1,
-      "answer": "...",
+      "answer": "disadvantage",
       "paragraphNumber": 1,
       "evidenceText": "Exact verbatim sentence from [Paragraph X]...",
       "explanation": "详细中文解析..."
@@ -371,11 +380,22 @@ Please solve all questions now and return strictly the JSON structure containing
   // Update summaryGroup if present
   let updatedSummaryGroup: SummaryGroup | undefined = courseware.summaryGroup;
   if (courseware.summaryGroup) {
+    let paragraphGuide = courseware.summaryGroup.paragraphGuide;
+    if (parsed.summaryWordBank && typeof parsed.summaryWordBank === 'string' && parsed.summaryWordBank.startsWith('备选词表:')) {
+      paragraphGuide = parsed.summaryWordBank.trim();
+    }
+
+    const tempSG: SummaryGroup = {
+      ...courseware.summaryGroup,
+      paragraphGuide,
+    };
+
     const updatedItems: SummaryItem[] = courseware.summaryGroup.items.map((item) => {
       const solved = solvedMap.get(item.id);
       if (!solved) return item;
 
-      const answer = solved.answer || item.answer;
+      const rawAnswer = solved.answer || item.answer;
+      const answer = resolveSummaryWord(rawAnswer, tempSG) || rawAnswer;
       const evidenceText = solved.evidenceText || item.evidenceText;
       const explanation = solved.explanation || item.explanation;
       const evidenceRanges = findEvidenceRanges(
@@ -393,8 +413,20 @@ Please solve all questions now and return strictly the JSON structure containing
       };
     });
 
+    // If still no Word Bank, extract candidate words and distractors from the passage
+    if (!paragraphGuide || !paragraphGuide.startsWith('备选词表:')) {
+      const fallbackGuide = extractWordBankFromPassage(
+        { ...courseware.summaryGroup, items: updatedItems },
+        courseware.paragraphs
+      );
+      if (fallbackGuide) {
+        paragraphGuide = fallbackGuide;
+      }
+    }
+
     updatedSummaryGroup = {
       ...courseware.summaryGroup,
+      paragraphGuide,
       items: updatedItems,
     };
   }
@@ -476,11 +508,13 @@ CRITICAL EXTRACTION & SOLVING RULES:
    - "idRange": string (e.g. "1–9")
    - "title": Subheading of the summary if present (e.g. "Reasons for a lack of engineers")
    - "instruction": The instruction text (e.g. "Complete the summary using the list of words, A–Q, below.")
-   - "paragraphGuide": If there is a Word Bank of options (like A disadvantage, B quality...), format as "备选词表: A disadvantage | B quality | C retirement..."
+   - "paragraphGuide": **MANDATORY WORD BANK EXTRACTION**:
+     * If the user text already contains a candidate Word Bank (A–Q options), format as: "备选词表: A disadvantage | B quality | C retirement..."
+     * **CRITICAL REQUIREMENT**: If the user's uploaded text does NOT contain a Word Bank, YOU MUST EXTRACT A CANDIDATE WORD BANK DIRECTLY FROM THE PASSAGE! Extract all the answer words for the blanks, along with 2–4 plausible distractor vocabulary words directly from the reading passage text, sorted alphabetically and formatted as: "备选词表: A [word1] | B [word2] | C [word3] | ...". NEVER leave paragraphGuide empty or without "备选词表:" when there is a summary completion!
    - "paragraphs": Array of strings representing the summary text, with all blanks normalized to format [1], [2], [3]...
    - "items": Array of objects for each blank [1]..[N]:
      * "id": integer blank number (e.g. 1)
-     * "answer": The correct answer. If a Word Bank (A–Q) is provided, output the option letter (e.g. "H") or option letter + term (e.g. "H"). If no word bank, output the exact word(s) from the passage.
+     * "answer": The correct answer. Output the actual English word itself (e.g. "disadvantage"), NEVER output just the option letter or number code like "H" or "1.".
      * "paragraphNumber": integer (1-based), which paragraph in "paragraphs" contains the evidence sentence.
      * "evidenceText": **EXTREMELY IMPORTANT**: EXACT VERBATIM sentence copied directly from the passage text with 100% character-by-character fidelity.
      * "explanation": Detailed, pedagogical Chinese explanation (详细中文解析).
@@ -516,7 +550,7 @@ JSON Format Structure:
     "items": [
       {
         "id": 1,
-        "answer": "H",
+        "answer": "disadvantage",
         "paragraphNumber": 1,
         "evidenceText": "Exact verbatim sentence from Paragraph 1...",
         "explanation": "详细中文解析..."
@@ -614,28 +648,52 @@ Please parse the reading passage, extract all questions, solve every question wi
   let summaryGroup: SummaryGroup | undefined = undefined;
   if (parsed.summaryGroup && Array.isArray(parsed.summaryGroup.items)) {
     const rawSG = parsed.summaryGroup;
+    let paragraphGuide = rawSG.paragraphGuide;
+
+    const tempSGForResolve: SummaryGroup = {
+      idRange: rawSG.idRange || '1–9',
+      title: rawSG.title,
+      instruction: rawSG.instruction || 'Complete the summary below.',
+      paragraphGuide,
+      paragraphs: Array.isArray(rawSG.paragraphs) ? rawSG.paragraphs : [],
+      items: [],
+    };
+
+    const items = rawSG.items.map((it: any) => {
+      const id = Number(it.id) || 1;
+      const rawAns = String(it.answer || '').trim();
+      const answer = resolveSummaryWord(rawAns, tempSGForResolve) || rawAns;
+      const evidenceText = String(it.evidenceText || it.evidence || '').trim();
+      const explanation = String(it.explanation || it.analysis || '').trim();
+      const pNum = typeof it.paragraphNumber === 'number' ? it.paragraphNumber : undefined;
+      const evidenceRanges = findEvidenceRanges(paragraphs, evidenceText, pNum);
+
+      return {
+        id,
+        answer,
+        evidenceText,
+        explanation,
+        evidenceRanges,
+      };
+    });
+
+    if (!paragraphGuide || !paragraphGuide.startsWith('备选词表:')) {
+      const fallbackGuide = extractWordBankFromPassage(
+        { idRange: rawSG.idRange || '', instruction: rawSG.instruction || '', paragraphs: rawSG.paragraphs || [], items },
+        paragraphs
+      );
+      if (fallbackGuide) {
+        paragraphGuide = fallbackGuide;
+      }
+    }
+
     summaryGroup = {
       idRange: rawSG.idRange || '1–9',
       title: rawSG.title,
       instruction: rawSG.instruction || 'Complete the summary below.',
-      paragraphGuide: rawSG.paragraphGuide,
+      paragraphGuide,
       paragraphs: Array.isArray(rawSG.paragraphs) ? rawSG.paragraphs : [],
-      items: rawSG.items.map((it: any) => {
-        const id = Number(it.id) || 1;
-        const answer = String(it.answer || '').trim();
-        const evidenceText = String(it.evidenceText || it.evidence || '').trim();
-        const explanation = String(it.explanation || it.analysis || '').trim();
-        const pNum = typeof it.paragraphNumber === 'number' ? it.paragraphNumber : undefined;
-        const evidenceRanges = findEvidenceRanges(paragraphs, evidenceText, pNum);
-
-        return {
-          id,
-          answer,
-          evidenceText,
-          explanation,
-          evidenceRanges,
-        };
-      }),
+      items,
     };
   }
 
