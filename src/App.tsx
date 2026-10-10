@@ -571,12 +571,32 @@ function App() {
     );
   }
 
+  const handleToggleCoursewareType = useCallback(
+    (newType: 'reading' | 'cloze') => {
+      if (!state.courseware) return;
+      const updatedCw: Courseware = {
+        ...state.courseware,
+        coursewareType: newType,
+        questions: state.courseware.questions.map((q) => ({
+          ...q,
+          type: newType === 'cloze' ? ('cloze' as const) : ('single' as const),
+        })),
+        updatedAt: Date.now(),
+      };
+      setCourseware(updatedCw);
+      saveCoursewareToStorage(updatedCw);
+    },
+    [state.courseware, setCourseware]
+  );
+
   return (
     <div className="h-screen flex flex-col bg-[#f4efe6] overflow-hidden">
       {/* Top Professional Toolbar */}
       <Toolbar
         title={state.courseware.title}
         subtitle={state.courseware.subtitle}
+        coursewareType={state.courseware.coursewareType}
+        onToggleCoursewareType={handleToggleCoursewareType}
         fontSize={state.fontSize}
         areAnswersShown={state.areAnswersShown}
         libraryCount={libraryCount}
@@ -672,6 +692,7 @@ function App() {
               ref={questionRef}
               questions={state.courseware.questions}
               summaryGroup={state.courseware.summaryGroup}
+              coursewareType={state.courseware.coursewareType}
               paragraphs={state.courseware.paragraphs}
               activeQuestionId={state.activeQuestionId}
               showAnswers={state.showAnswers}

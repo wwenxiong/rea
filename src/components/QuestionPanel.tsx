@@ -7,6 +7,7 @@ import { resolveSummaryWord } from '../utils/summaryWordBank';
 interface QuestionPanelProps {
   questions: Question[];
   summaryGroup?: SummaryGroup;
+  coursewareType?: 'reading' | 'cloze';
   paragraphs?: string[];
   activeQuestionId: number | null;
   showAnswers: Record<number, boolean>;
@@ -31,6 +32,7 @@ export const QuestionPanel = forwardRef<QuestionPanelHandle, QuestionPanelProps>
     {
       questions,
       summaryGroup,
+      coursewareType,
       paragraphs = [],
       activeQuestionId,
       showAnswers,
@@ -240,7 +242,12 @@ export const QuestionPanel = forwardRef<QuestionPanelHandle, QuestionPanelProps>
                 const isActive = activeQuestionId === q.id;
                 const isColored = areAnswersShown || isActive;
                 const showAnswer = isAnswerVisible(q.id);
-                const isClozeQuestion = q.type === 'cloze' || (q.options && q.options.length === 4 && (!q.stem || q.stem.includes('完形') || q.stem.includes(`第 ${q.id} 题`) || q.stem.length < 20));
+                const isClozeQuestion =
+                  coursewareType === 'reading'
+                    ? false
+                    : coursewareType === 'cloze'
+                    ? true
+                    : q.type === 'cloze' || (q.options && q.options.length === 4 && (!q.stem || q.stem.includes('完形') || q.stem.includes(`第 ${q.id} 题`) || q.stem.length < 20));
 
                 return (
                   <div

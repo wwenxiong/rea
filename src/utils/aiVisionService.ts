@@ -10,6 +10,7 @@ export interface AIServiceConfig {
 export interface VisionParseResult {
   title: string;
   subtitle: string;
+  coursewareType?: 'reading' | 'cloze';
   paragraphs: string[];
   summaryGroup?: SummaryGroup;
   questions: Omit<Question, 'evidenceRanges'>[];

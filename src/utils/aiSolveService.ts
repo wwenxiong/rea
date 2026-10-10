@@ -465,6 +465,7 @@ Please solve all questions now and return strictly the JSON structure containing
 export interface AIParsedCourseware {
   title: string;
   subtitle: string;
+  coursewareType?: 'reading' | 'cloze';
   paragraphs: string[];
   summaryGroup?: SummaryGroup;
   questions: Question[];

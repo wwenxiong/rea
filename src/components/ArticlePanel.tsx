@@ -135,11 +135,14 @@ export const ArticlePanel = forwardRef<ArticlePanelHandle, ArticlePanelProps>(
     }, 0);
 
     const isClozeCw =
-      courseware.coursewareType === 'cloze' ||
-      courseware.questions.some((q) => q.type === 'cloze') ||
-      courseware.paragraphs.some((p) =>
-        /(?:_{2,}\s*\d+\s*_{2,}|\[\s*\d+\s*\]|\(\s*\d+\s*\)|（\s*\d+\s*）|\b\d+\s*_{2,}|\b\d+\s*\.{3,})/.test(p)
-      );
+      courseware.coursewareType === 'cloze'
+        ? true
+        : courseware.coursewareType === 'reading'
+        ? false
+        : courseware.questions.some((q) => q.type === 'cloze') ||
+          courseware.paragraphs.some((p) =>
+            /(?:_{2,}\s*\d+\s*_{2,}|\[\s*\d+\s*\]|\(\s*\d+\s*\)|（\s*\d+\s*）|\b\d+\s*_{2,}|\b\d+\s*\.{3,})/.test(p)
+          );
 
     const renderClozeBlank = (blankId: number, keyStr: string) => {
       const q = courseware.questions.find((item) => item.id === blankId);

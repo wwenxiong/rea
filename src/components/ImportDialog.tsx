@@ -71,7 +71,10 @@ export const SENSENOVA_IDENTIFIED_LIFE_2045: ParsedResult = {
   questions: sampleCourseware.questions.map(({ evidenceRanges, ...rest }) => rest),
 };
 
-export function parseExamText(rawText: string): ParsedResult {
+export function parseExamText(
+  rawText: string,
+  manualType: 'auto' | 'reading' | 'cloze' = 'auto'
+): ParsedResult {
   const lines = rawText
     .split('\n')
     .map((l) => l.trim())
@@ -409,14 +412,15 @@ export function parseExamText(rawText: string): ParsedResult {
   const rawArticleStr = paragraphs.join('\n');
   const hasArticleBlanks = /(?:_{2,}\s*\d+\s*_{2,}|\[\s*\d+\s*\]|\(\s*\d+\s*\)|（\s*\d+\s*）|\b\d+\s*_{2,}|\b\d+\s*\.{3,})/.test(rawArticleStr);
   const isClozeKeyword = /完形填空|完型填空|Cloze/i.test(`${title} ${subtitle} ${rawText}`);
-  const isClozeType = isClozeKeyword || (hasArticleBlanks && questions.length > 0 && questions.every(q => q.options.length >= 2));
+  const autoClozeType = isClozeKeyword || (hasArticleBlanks && questions.length > 0 && questions.every(q => q.options.length >= 2));
 
+  const isClozeType = manualType === 'cloze' ? true : manualType === 'reading' ? false : autoClozeType;
   let coursewareType: 'reading' | 'cloze' = isClozeType ? 'cloze' : 'reading';
 
   if (isClozeType) {
     for (const q of questions) {
       q.type = 'cloze';
-      if (!q.stem || q.stem.includes('[') && q.stem.includes(']')) {
+      if (!q.stem || (q.stem.includes('[') && q.stem.includes(']'))) {
         q.stem = `第 ${q.id} 题`;
       }
       // If evidenceText not specified, locate the sentence containing the blank in paragraphs
@@ -435,6 +439,12 @@ export function parseExamText(rawText: string): ParsedResult {
         }
       }
     }
+  } else {
+    for (const q of questions) {
+      if (q.type === 'cloze') {
+        q.type = 'single';
+      }
+    }
   }
 
   questions.sort((a, b) => a.id - b.id);
@@ -448,9 +458,23 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
   onOpenSettings,
 }) => {
   const [activeTab, setActiveTab] = useState<'image' | 'word' | 'text'>('image');
+  const [selectedTypeMode, setSelectedTypeMode] = useState<'auto' | 'reading' | 'cloze'>('auto');
   const [rawText, setRawText] = useState('');
   const [parsed, setParsed] = useState<ParsedResult | null>(null);
   const [step, setStep] = useState<'input' | 'preview'>('input');
+
+  const handleToggleCoursewareType = useCallback((newType: 'reading' | 'cloze') => {
+    if (!parsed) return;
+    const updatedQuestions = parsed.questions.map((q) => ({
+      ...q,
+      type: newType === 'cloze' ? ('cloze' as const) : ('single' as const),
+    }));
+    setParsed({
+      ...parsed,
+      coursewareType: newType,
+      questions: updatedQuestions,
+    });
+  }, [parsed]);
 
   // Word docx state
   const [wordFile, setWordFile] = useState<File | null>(null);
@@ -685,6 +709,13 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
         aiConfig,
         (status) => setAiParseStatus(status)
       );
+      if (selectedTypeMode === 'reading') {
+        result.coursewareType = 'reading';
+        result.questions.forEach((q) => { q.type = 'single'; });
+      } else if (selectedTypeMode === 'cloze') {
+        result.coursewareType = 'cloze';
+        result.questions.forEach((q) => { q.type = 'cloze'; });
+      }
       setParsed(result);
       setStep('preview');
     } catch (err: any) {
@@ -733,6 +764,14 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
         (status) => setRecognizeStatus(status)
       );
 
+      if (selectedTypeMode === 'reading') {
+        result.coursewareType = 'reading';
+        result.questions.forEach((q) => { q.type = 'single'; });
+      } else if (selectedTypeMode === 'cloze') {
+        result.coursewareType = 'cloze';
+        result.questions.forEach((q) => { q.type = 'cloze'; });
+      }
+
       setParsed(result);
       setStep('preview');
     } catch (err) {
@@ -744,10 +783,10 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
   };
 
   const handleParseText = useCallback(() => {
-    const result = parseExamText(rawText);
+    const result = parseExamText(rawText, selectedTypeMode);
     setParsed(result);
     setStep('preview');
-  }, [rawText]);
+  }, [rawText, selectedTypeMode]);
 
   const handleLoadSample = useCallback(() => {
     setRawText(SAMPLE_TEXT_TEMPLATE);
@@ -785,7 +824,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
       };
     }
 
-    const isClozeType = parsed.coursewareType === 'cloze' || parsed.questions.some(q => q.type === 'cloze');
+    const isClozeType = parsed.coursewareType === 'cloze';
 
     const courseware: Courseware = {
       id: `cw-${Date.now()}`,
@@ -793,7 +832,10 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
       subtitle: parsed.subtitle || (isClozeType ? 'Cloze Test · 完型填空' : '教师导入课件'),
       coursewareType: isClozeType ? 'cloze' : 'reading',
       paragraphs: parsed.paragraphs,
-      questions,
+      questions: questions.map((q) => ({
+        ...q,
+        type: isClozeType ? 'cloze' : (q.type === 'summary' ? 'summary' : 'single'),
+      })),
       summaryGroup,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -845,37 +887,80 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
               {step === 'input' ? '导入试卷' : '试卷内容预览'}
             </h2>
             {step === 'input' && (
-              <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-xs font-semibold">
-                <button
-                  onClick={() => setActiveTab('image')}
-                  className={`px-3 py-1 rounded-md transition-all ${
-                    activeTab === 'image'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  图片识别
-                </button>
-                <button
-                  onClick={() => setActiveTab('word')}
-                  className={`px-3 py-1 rounded-md transition-all ${
-                    activeTab === 'word'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Word 文档
-                </button>
-                <button
-                  onClick={() => setActiveTab('text')}
-                  className={`px-3 py-1 rounded-md transition-all ${
-                    activeTab === 'text'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  文本粘贴
-                </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-xs font-semibold">
+                  <button
+                    onClick={() => setActiveTab('image')}
+                    className={`px-3 py-1 rounded-md transition-all ${
+                      activeTab === 'image'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    图片识别
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('word')}
+                    className={`px-3 py-1 rounded-md transition-all ${
+                      activeTab === 'word'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Word 文档
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('text')}
+                    className={`px-3 py-1 rounded-md transition-all ${
+                      activeTab === 'text'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    文本粘贴
+                  </button>
+                </div>
+
+                {/* Manual Paper Type Preset Selector */}
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                  <span className="text-[11px] text-slate-400 font-medium px-1.5 hidden sm:inline">题型:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTypeMode('auto')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                      selectedTypeMode === 'auto'
+                        ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                    title="自动根据文本或填空格式识别题型"
+                  >
+                    自动
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTypeMode('reading')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-0.5 ${
+                      selectedTypeMode === 'reading'
+                        ? 'bg-blue-600 text-white shadow-2xs font-bold'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                    title="手动指定为：阅读理解题型"
+                  >
+                    <span>📖 阅读理解</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTypeMode('cloze')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-0.5 ${
+                      selectedTypeMode === 'cloze'
+                        ? 'bg-amber-500 text-white shadow-2xs font-bold'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                    title="手动指定为：完形填空题型"
+                  >
+                    <span>✏️ 完形填空</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1072,7 +1157,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                         <button
                           type="button"
                           onClick={() => {
-                            const parsedRes = parseExamText(wordRawText);
+                            const parsedRes = parseExamText(wordRawText, selectedTypeMode);
                             setParsed(parsedRes);
                             setStep('preview');
                           }}
@@ -1233,17 +1318,32 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block">识别题型</span>
-                    <div className="mt-1">
-                      {parsed.coursewareType === 'cloze' || parsed.questions.some(q => q.type === 'cloze') ? (
-                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                          完形填空 (Cloze)
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                          常规阅读理解
-                        </span>
-                      )}
+                    <span className="text-slate-400 block font-medium mb-1">题型 (可手动指定)</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCoursewareType('reading')}
+                        className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                          (parsed.coursewareType || 'reading') === 'reading'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                        title="指定为常规阅读理解题型"
+                      >
+                        <span>📖 阅读理解</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCoursewareType('cloze')}
+                        className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                          parsed.coursewareType === 'cloze'
+                            ? 'bg-amber-500 text-white border-amber-500 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                        title="指定为完形填空题型"
+                      >
+                        <span>✏️ 完形填空</span>
+                      </button>
                     </div>
                   </div>
                   <div>
@@ -1419,7 +1519,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => {
-                        const parsedRes = parseExamText(wordRawText);
+                        const parsedRes = parseExamText(wordRawText, selectedTypeMode);
                         setParsed(parsedRes);
                         setStep('preview');
                       }}
