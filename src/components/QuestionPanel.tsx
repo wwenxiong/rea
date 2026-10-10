@@ -51,6 +51,7 @@ export const QuestionPanel = forwardRef<QuestionPanelHandle, QuestionPanelProps>
   ) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+    const [showAnswerKey, setShowAnswerKey] = useState(true);
 
     const scrollToCard = useCallback((questionId: number) => {
       const el = cardRefs.current.get(questionId);
@@ -114,8 +115,6 @@ export const QuestionPanel = forwardRef<QuestionPanelHandle, QuestionPanelProps>
         ? summaryGroup.items.filter((it) => !it.answer?.trim() || !it.evidenceText?.trim()).length
         : 0) +
       nonSummaryQuestions.filter((q) => !q.answer?.trim() || !q.evidenceText?.trim()).length;
-
-    const [showAnswerKey, setShowAnswerKey] = useState(true);
 
     // Collect all items across summaryGroup and nonSummaryQuestions for Answer Key
     const answerKeyItems = (() => {
