@@ -511,24 +511,6 @@ function App() {
     };
   }, [state.courseware]);
 
-  const handleToggleCoursewareType = useCallback(
-    (newType: 'reading' | 'cloze') => {
-      if (!state.courseware) return;
-      const updatedCw: Courseware = {
-        ...state.courseware,
-        coursewareType: newType,
-        questions: state.courseware.questions.map((q) => ({
-          ...q,
-          type: newType === 'cloze' ? ('cloze' as const) : ('single' as const),
-        })),
-        updatedAt: Date.now(),
-      };
-      setCourseware(updatedCw);
-      saveCoursewareToStorage(updatedCw);
-    },
-    [state.courseware, setCourseware]
-  );
-
   const unsolvedCount = state.courseware
     ? countUnsolvedQuestions(state.courseware).unsolved
     : 0;
@@ -595,8 +577,6 @@ function App() {
       <Toolbar
         title={state.courseware.title}
         subtitle={state.courseware.subtitle}
-        coursewareType={state.courseware.coursewareType}
-        onToggleCoursewareType={handleToggleCoursewareType}
         fontSize={state.fontSize}
         areAnswersShown={state.areAnswersShown}
         libraryCount={libraryCount}

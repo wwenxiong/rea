@@ -8,8 +8,6 @@ interface ToolbarProps {
   areAnswersShown: boolean;
   libraryCount?: number;
   unsolvedCount?: number;
-  coursewareType?: 'reading' | 'cloze';
-  onToggleCoursewareType?: (newType: 'reading' | 'cloze') => void;
   onIncreaseFontSize: () => void;
   onDecreaseFontSize: () => void;
   onSetFontSize: (size: number) => void;
@@ -30,8 +28,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   fontSize,
   areAnswersShown,
   libraryCount,
-  coursewareType,
-  onToggleCoursewareType,
   onIncreaseFontSize,
   onDecreaseFontSize,
   onSetFontSize,
@@ -79,36 +75,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             )}
           </div>
         </button>
-
-        {/* Paper Type Manual Switcher */}
-        {onToggleCoursewareType && (
-          <div className="flex items-center bg-slate-100/90 rounded-lg p-0.5 border border-slate-200 text-xs shrink-0 ml-1">
-            <button
-              type="button"
-              onClick={() => onToggleCoursewareType('reading')}
-              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
-                (coursewareType || 'reading') === 'reading'
-                  ? 'bg-blue-600 text-white shadow-2xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="手动指定为：阅读理解题型"
-            >
-              <span>📖 阅读理解</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onToggleCoursewareType('cloze')}
-              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
-                coursewareType === 'cloze'
-                  ? 'bg-amber-500 text-white shadow-2xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="手动指定为：完形填空题型"
-            >
-              <span>✏️ 完形填空</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Right Controls: Font Sizing + Tools */}
