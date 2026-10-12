@@ -191,7 +191,9 @@ export const QuestionPanel = forwardRef<QuestionPanelHandle, QuestionPanelProps>
           {unsolvedCount > 0 && onAISolve && (
             <div className="mb-4 bg-[#fffbf0] border border-[#fde68a] rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs animate-fadeIn">
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="text-base shrink-0 select-none">📝</span>
+                <svg className="w-4 h-4 text-[#b45309] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
                 <div className="min-w-0">
                   <h4 className="text-xs font-bold text-[#78350f] truncate">
                     尚有 {unsolvedCount} 道题目未补充答案或解析
@@ -560,7 +562,9 @@ export const QuestionPanel = forwardRef<QuestionPanelHandle, QuestionPanelProps>
               {/* Header */}
               <div className="flex items-center justify-between border-b border-[#f0ebd9] pb-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-base select-none">✅</span>
+                  <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
                   <h3 className="text-base font-extrabold text-stone-900 tracking-tight flex items-center gap-1.5">
                     <span>答案速查</span>
                     <span className="text-stone-600 font-semibold text-sm">Answer Key</span>

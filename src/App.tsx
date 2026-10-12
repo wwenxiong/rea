@@ -5,10 +5,13 @@ import type { ArticlePanelHandle } from './components/ArticlePanel';
 import { QuestionPanel } from './components/QuestionPanel';
 import type { QuestionPanelHandle } from './components/QuestionPanel';
 import { ImportDialog } from './components/ImportDialog';
-import { SettingsModal } from './components/SettingsModal';
 import { CoursewareLibraryModal } from './components/CoursewareLibraryModal';
 import { AISolveModal } from './components/AISolveModal';
+import { AuthModal } from './components/AuthModal';
+import { AdminModal } from './components/AdminModal';
+import { ActivationModal } from './components/ActivationModal';
 import { useAppState } from './hooks/useAppState';
+import { useAuth } from './context/AuthContext';
 import { sampleCourseware } from './data/sampleCourseware';
 import type { Courseware, ArticleAnnotation, AIWordAnalysis } from './types';
 import {
@@ -38,11 +41,17 @@ function App() {
     toggleBlankReveal,
   } = useAppState();
 
+  const { user, quota, isLoggedIn, isAdmin, syncStatus, syncCourseware, pullCoursewares, logout } = useAuth();
+
   const [showImport, setShowImport] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [showAISolve, setShowAISolve] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [showActivation, setShowActivation] = useState(false);
   const [libraryCount, setLibraryCount] = useState(1);
+
+
   const articleRef = useRef<ArticlePanelHandle>(null);
   const questionRef = useRef<QuestionPanelHandle>(null);
 
@@ -120,6 +129,36 @@ function App() {
     setInitialized(true);
   }
 
+  // 登录后自动拉取云端数据，与本地合并（以 updatedAt 较新者为准）
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    pullCoursewares().then((cloudList) => {
+      if (!cloudList.length) return;
+      const localList = getSavedCoursewares();
+      const localMap = new Map(localList.map((c) => [c.id, c]));
+      let changed = false;
+      for (const remote of cloudList) {
+        const local = localMap.get(remote.id);
+        if (!local || remote.updatedAt > local.updatedAt) {
+          localMap.set(remote.id, remote);
+          changed = true;
+        }
+      }
+      if (changed) {
+        const merged = Array.from(localMap.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+        merged.forEach((cw) => saveCoursewareToStorage(cw));
+        setLibraryCount(merged.length);
+        // 如果当前课件有更新版本，切换到最新版
+        const currentId = getActiveCoursewareId();
+        if (currentId) {
+          const latest = localMap.get(currentId);
+          if (latest) setCourseware(latest);
+        }
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
+
   const handleQuestionClick = useCallback(
     (questionId: number) => {
       if (state.activeQuestionId === questionId) {
@@ -156,8 +195,9 @@ function App() {
       setCourseware(courseware);
       setLibraryCount(updated.length);
       setActiveCoursewareId(courseware.id);
+      syncCourseware(courseware);
     },
-    [setCourseware]
+    [setCourseware, syncCourseware]
   );
 
   const handleSelectCourseware = useCallback(
@@ -174,8 +214,9 @@ function App() {
       const updatedList = saveCoursewareToStorage(updatedCourseware);
       setLibraryCount(updatedList.length);
       setActiveCoursewareId(updatedCourseware.id);
+      syncCourseware(updatedCourseware);
     },
-    [setCourseware]
+    [setCourseware, syncCourseware]
   );
 
   const handleExport = useCallback(() => {
@@ -183,6 +224,7 @@ function App() {
       exportCoursewareToHTML(state.courseware, state.fontSize);
     }
   }, [state.courseware, state.fontSize]);
+
 
   const handleSaveAnnotation = useCallback(
     (
@@ -226,8 +268,9 @@ function App() {
 
       setCourseware(updatedCw);
       saveCoursewareToStorage(updatedCw);
+      syncCourseware(updatedCw);
     },
-    [state.courseware, setCourseware]
+    [state.courseware, setCourseware, syncCourseware]
   );
 
   const handleDeleteAnnotation = useCallback(
@@ -245,9 +288,11 @@ function App() {
 
       setCourseware(updatedCw);
       saveCoursewareToStorage(updatedCw);
+      syncCourseware(updatedCw);
     },
-    [state.courseware, setCourseware]
+    [state.courseware, setCourseware, syncCourseware]
   );
+
 
   // Global Text Selection Bubble State
   const bubbleRef = useRef<HTMLDivElement>(null);
@@ -515,6 +560,11 @@ function App() {
     ? countUnsolvedQuestions(state.courseware).unsolved
     : 0;
 
+  // 未登录强制拦截：展示全屏登录注册墙，阻断任何功能
+  if (!isLoggedIn) {
+    return <AuthModal isOpen={true} forceMode={true} />;
+  }
+
   if (!state.courseware) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-slate-50">
@@ -539,23 +589,13 @@ function App() {
             >
               课件库 ({libraryCount})
             </button>
-            <button
-              onClick={() => setShowSettings(true)}
-              className="px-3 py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
-            >
-              设置
-            </button>
           </div>
         </div>
         <ImportDialog
           isOpen={showImport}
           onClose={() => setShowImport(false)}
           onImport={handleImport}
-          onOpenSettings={() => setShowSettings(true)}
-        />
-        <SettingsModal
-          isOpen={showSettings}
-          onClose={() => setShowSettings(false)}
+          onOpenActivation={() => setShowActivation(true)}
         />
         <CoursewareLibraryModal
           isOpen={showLibrary}
@@ -588,8 +628,16 @@ function App() {
         onImport={() => setShowImport(true)}
         onExport={handleExport}
         onOpenLibrary={() => setShowLibrary(true)}
-        onOpenSettings={() => setShowSettings(true)}
+        user={user}
+        isAdmin={isAdmin}
+        quota={quota}
+        syncStatus={syncStatus}
+        onOpenAuth={() => setShowAuth(true)}
+        onLogout={logout}
+        onOpenAdmin={() => setShowAdmin(true)}
+        onOpenActivation={() => setShowActivation(true)}
       />
+
 
       {/* Main Dual-Column Workspace with Draggable Divider */}
       <main
@@ -697,7 +745,6 @@ function App() {
         onClose={() => setShowAISolve(false)}
         courseware={state.courseware}
         onSuccess={handleAISolveSuccess}
-        onOpenSettings={() => setShowSettings(true)}
       />
 
       {/* Import Dialog */}
@@ -705,14 +752,27 @@ function App() {
         isOpen={showImport}
         onClose={() => setShowImport(false)}
         onImport={handleImport}
-        onOpenSettings={() => setShowSettings(true)}
+        onOpenActivation={() => setShowActivation(true)}
       />
 
-      {/* Global Settings Modal */}
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuth}
+        onClose={() => setShowAuth(false)}
       />
+
+      {/* Activation Modal */}
+      <ActivationModal
+        isOpen={showActivation}
+        onClose={() => setShowActivation(false)}
+      />
+
+      {/* Admin Panel Modal */}
+      <AdminModal
+        isOpen={showAdmin}
+        onClose={() => setShowAdmin(false)}
+      />
+
 
       {/* Courseware Library Modal */}
       <CoursewareLibraryModal
@@ -757,7 +817,6 @@ function App() {
             onClick={handleOpenNoteModal}
             className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-200 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
           >
-            <span>📝</span>
             <span>写笔记</span>
           </button>
 
@@ -767,7 +826,6 @@ function App() {
             onClick={handleOpenAIModal}
             className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-indigo-300 hover:text-white bg-indigo-600/70 hover:bg-indigo-600 rounded-lg transition-all shadow-xs cursor-pointer"
           >
-            <span>📖</span>
             <span>释义</span>
           </button>
 
@@ -777,7 +835,6 @@ function App() {
             onClick={handleOpenTranslateModal}
             className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-emerald-300 hover:text-white bg-emerald-600/70 hover:bg-emerald-600 rounded-lg transition-all shadow-xs cursor-pointer"
           >
-            <span>🌐</span>
             <span>翻译</span>
           </button>
 

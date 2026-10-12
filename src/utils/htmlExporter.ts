@@ -237,7 +237,7 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
         <div class="summary-body-text">${summaryParagraphsHtml}</div>
         <div class="summary-analysis-section">
           <div class="summary-analysis-title">
-            <span>📝 填空题精读解析 (Questions ${escapeHtml(sg.idRange)})</span>
+            <span>填空题精读解析 (Questions ${escapeHtml(sg.idRange)})</span>
             <span class="analysis-subtitle">点击题目可查看对应原文依据</span>
           </div>
           <div class="summary-items-list">
@@ -640,15 +640,17 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
     }
     .word-bank-title { font-weight: 700; color: #1e293b; margin-bottom: 8px; }
     .word-bank-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px;
+      display: flex; flex-wrap: wrap; gap: 8px;
     }
     .word-chip {
       background: white; border: 1px solid #e2e8f0; border-radius: 6px;
-      padding: 4px 8px; display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px;
+      padding: 4px 10px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+      white-space: nowrap; flex-shrink: 0;
       transition: all 0.15s ease;
     }
     .word-chip:hover { border-color: #93c5fd; background: #f0f7ff; }
     .chip-letter { font-weight: 800; color: #2563eb; }
+    .chip-text { font-weight: 600; color: #0f172a; white-space: nowrap; }
 
     /* Summary Passage */
     .summary-subheading {
@@ -892,7 +894,7 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
       <!-- 答案速查 (Answer Key) -->
       <div class="card answer-key-card">
         <div class="card-title">
-          <span>✅ 答案速查 Answer Key</span>
+          <span>答案速查 Answer Key</span>
         </div>
         <div class="key-pills-wrap">
           ${answerKeyPillsHtml}

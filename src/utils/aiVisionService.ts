@@ -17,36 +17,17 @@ export interface VisionParseResult {
 }
 
 export const DEFAULT_AI_CONFIG: AIServiceConfig = {
-  apiKey: '',
-  baseUrl: 'https://token.sensenova.cn/v1',
-  model: 'sensenova-6.8-flash-lite',
+  apiKey: (import.meta.env.VITE_AI_API_KEY as string) || 'sk-baL9FZyrfawVQnxHTE7KXVQ4nmzPsdaA',
+  baseUrl: (import.meta.env.VITE_AI_BASE_URL as string) || 'https://token.sensenova.cn/v1',
+  model: (import.meta.env.VITE_AI_MODEL as string) || 'sensenova-6.8-flash-lite',
 };
 
-const STORAGE_KEY = 'rc_courseware_ai_config';
-
 export function loadSavedAIConfig(): AIServiceConfig {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        apiKey: parsed.apiKey || '',
-        baseUrl: parsed.baseUrl || 'https://token.sensenova.cn/v1',
-        model: parsed.model || 'sensenova-6.8-flash-lite',
-      };
-    }
-  } catch (e) {
-    console.warn('Failed to load AI config from localStorage', e);
-  }
   return DEFAULT_AI_CONFIG;
 }
 
-export function saveAIConfig(config: AIServiceConfig): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-  } catch (e) {
-    console.warn('Failed to save AI config to localStorage', e);
-  }
+export function saveAIConfig(_config: AIServiceConfig): void {
+  // Config is managed statically via environment variables
 }
 
 /**

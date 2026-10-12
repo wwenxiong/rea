@@ -722,7 +722,7 @@ export const ArticlePanel = forwardRef<ArticlePanelHandle, ArticlePanelProps>(
           <div className="flex items-center gap-2">
             {courseware.annotations && courseware.annotations.length > 0 && (
               <span className="text-[11px] font-semibold text-[#9a3412] bg-[#fef3c7]/70 border border-[#fde68a] px-2 py-0.5 rounded-full shadow-2xs">
-                📝 批注 {courseware.annotations.length} 处
+                批注 {courseware.annotations.length} 处
               </span>
             )}
             <span className="text-[11px] text-stone-400">
@@ -770,16 +770,15 @@ export const ArticlePanel = forwardRef<ArticlePanelHandle, ArticlePanelProps>(
           {/* Bottom Usage Tips Card matching screenshot */}
           <div className="mt-12 pt-4 border-t border-[#f0ebd9] text-xs text-stone-500 space-y-1.5 leading-relaxed bg-[#fdfbf7]/90 rounded-xl p-3.5 border border-[#ede7dc]">
             <div className="flex items-start gap-1.5 text-[11px]">
-              <span className="shrink-0 select-none text-amber-600">💡</span>
+              <span className="font-bold text-amber-700 shrink-0">提示:</span>
               <div>
-                <span className="font-bold text-stone-700">用法: </span>
                 <span className="inline-block px-1.5 py-0.2 bg-[#f4efe6] border border-[#e5dfd3] rounded text-[10px] font-semibold text-stone-700 mx-0.5">点击空格</span> 跳到对应题目；
                 <span className="inline-block px-1.5 py-0.2 bg-[#f4efe6] border border-[#e5dfd3] rounded text-[10px] font-semibold text-stone-700 mx-0.5">点击题目</span> 回到原文依据；
                 <span className="inline-block px-1.5 py-0.2 bg-[#f4efe6] border border-[#e5dfd3] rounded text-[10px] font-semibold text-stone-700 mx-0.5">划选文字</span> 可高亮或直接写批注——批注紧跟原文文字显示，随时点击可改或删除。
               </div>
             </div>
             <div className="flex items-start gap-1.5 text-[11px] text-stone-400">
-              <span className="shrink-0 select-none text-stone-500">🅰</span>
+              <span className="font-medium text-stone-500 shrink-0">说明:</span>
               <div>字号可用右上角 A- / A+ 调节，文章与习题栏宽可按住中线自由缩放拖拽。</div>
             </div>
           </div>

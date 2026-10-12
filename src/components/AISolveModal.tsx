@@ -12,7 +12,6 @@ interface AISolveModalProps {
   onClose: () => void;
   courseware: Courseware | null;
   onSuccess: (updatedCourseware: Courseware) => void;
-  onOpenSettings?: () => void;
 }
 
 export const AISolveModal: React.FC<AISolveModalProps> = ({
@@ -20,7 +19,6 @@ export const AISolveModal: React.FC<AISolveModalProps> = ({
   onClose,
   courseware,
   onSuccess,
-  onOpenSettings,
 }) => {
   const [isRunning, setIsRunning] = useState(false);
   const [progressStatus, setProgressStatus] = useState('');
@@ -82,7 +80,9 @@ export const AISolveModal: React.FC<AISolveModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-linear-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-xs">
-              <span className="text-base">📝</span>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">试卷答案与解析生成</h3>
@@ -136,45 +136,8 @@ export const AISolveModal: React.FC<AISolveModalProps> = ({
                 端点：{aiConfig.baseUrl}
               </p>
             </div>
-
-            {onOpenSettings && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenSettings();
-                }}
-                disabled={isRunning}
-                className="text-[11px] text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50 border border-indigo-200 font-medium px-2.5 py-1 rounded-lg transition-colors shrink-0 disabled:opacity-40"
-              >
-                修改配置
-              </button>
-            )}
           </div>
 
-          {/* Missing API Key Warning */}
-          {!hasKey && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 space-y-2">
-              <div className="flex items-center gap-2 font-bold">
-                <span>⚠️ 尚未配置 API Key</span>
-              </div>
-              <p className="text-[11px] text-amber-700">
-                请先配置 API Key，系统将基于当前试卷生成参考答案、原文依据与题目解析。
-              </p>
-              {onOpenSettings && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onOpenSettings();
-                  }}
-                  className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs transition-colors shadow-2xs"
-                >
-                  前往设置
-                </button>
-              )}
-            </div>
-          )}
 
           {/* Running State */}
           {isRunning && (

@@ -26,4 +26,6 @@ dist-ssr
 # Local test & debug
 debug-sense.js
 scratch/
-.env*
+server/node_modules
+server/data/*.db*
+server/data/*.sqlite*

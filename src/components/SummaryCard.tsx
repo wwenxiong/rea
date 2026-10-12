@@ -79,8 +79,8 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
             <span className="text-[11px] font-normal text-slate-500">共 {wordBankItems.length} 个备选词</span>
           </div>
 
-          {/* Word Bank Items Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 pt-0.5">
+          {/* Word Bank Items: Flex-wrap auto flow, showing all letters without truncation */}
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
             {wordBankItems.map((item, idx) => {
               // Check if this word corresponds to the currently active question
               const activeItem = currentDisplayItem;
@@ -92,16 +92,17 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
               return (
                 <div
                   key={idx}
-                  className={`px-2.5 py-1.5 bg-white border rounded-lg text-left shadow-2xs text-slate-800 font-medium text-[12px] flex items-center gap-2 transition-all select-none ${
+                  className={`px-2.5 py-1.5 bg-white border rounded-lg text-left shadow-2xs text-slate-800 font-medium text-[12px] flex items-center gap-1.5 transition-all select-none shrink-0 ${
                     isMatchedActiveQuestion
                       ? 'ring-2 ring-blue-500 border-blue-400 bg-blue-50/60 shadow-xs'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
+                  title={item.translation ? `${item.word} (${item.translation})` : item.word}
                 >
                   <span className="font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded text-[11px] shrink-0">
                     {item.letter}
                   </span>
-                  <span className="truncate font-semibold text-slate-900">{item.word}</span>
+                  <span className="font-semibold text-slate-900 whitespace-nowrap">{item.word}</span>
                 </div>
               );
             })}

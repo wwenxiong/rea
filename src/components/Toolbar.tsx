@@ -1,5 +1,6 @@
 import React from 'react';
 import { MIN_FONT_SIZE, MAX_FONT_SIZE } from '../constants/design';
+import type { User } from '../utils/apiClient';
 
 interface ToolbarProps {
   title: string;
@@ -18,9 +19,31 @@ interface ToolbarProps {
   onOpenLibrary?: () => void;
   onSaveCurrent?: () => void;
   onAISolve?: () => void;
-  onOpenSettings?: () => void;
   onToggleFullscreen?: () => void;
+  // Auth
+  user?: User | null;
+  isAdmin?: boolean;
+  quota?: import('../utils/apiClient').UserQuota | null;
+  syncStatus?: 'idle' | 'syncing' | 'error' | 'offline';
+  onOpenAuth?: () => void;
+  onLogout?: () => void;
+  onOpenAdmin?: () => void;
+  onOpenActivation?: () => void;
 }
+
+
+
+const SyncDot: React.FC<{ status: ToolbarProps['syncStatus'] }> = ({ status }) => {
+  if (status === 'idle') return null;
+  const map = {
+    syncing: { cls: 'bg-blue-400 animate-pulse', title: '同步中…' },
+    error:   { cls: 'bg-red-400', title: '同步失败，将在下次操作时重试' },
+    offline: { cls: 'bg-slate-400', title: '离线，数据已保存到本地' },
+  } as const;
+  if (!status || !(status in map)) return null;
+  const { cls, title } = map[status as keyof typeof map];
+  return <span className={`w-2 h-2 rounded-full ${cls} shrink-0`} title={title} />;
+};
 
 export const Toolbar: React.FC<ToolbarProps> = ({
   title,
@@ -36,8 +59,32 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onExport,
   onExportPDF,
   onOpenLibrary,
-  onOpenSettings,
+  user,
+  isAdmin,
+  quota,
+  syncStatus,
+  onOpenAuth,
+  onLogout,
+  onOpenAdmin,
+  onOpenActivation,
 }) => {
+  const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
+  const userMenuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    if (isUserMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isUserMenuOpen]);
+
   return (
     <header className="no-print bg-white border-b border-slate-200 px-6 py-2.5 flex items-center justify-between gap-4 select-none shrink-0 z-10 shadow-xs">
       {/* Brand & Title */}
@@ -155,7 +202,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               className="px-3 py-1.5 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg shadow-2xs transition-colors flex items-center gap-1.5"
               title="打开课件库"
             >
-              <span>📚 课件库</span>
+              <span>课件库</span>
               {libraryCount !== undefined && libraryCount > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-white text-slate-700 shadow-2xs">
                   {libraryCount}
@@ -186,23 +233,139 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <span>导出</span>
           </button>
 
-          {onOpenSettings && (
-            <button
-              onClick={onOpenSettings}
-              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
-              title="设置"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
-          )}
+          {/* 用户账号 */}
+          <div className="relative flex items-center gap-1.5 border-l border-slate-200 pl-3" ref={userMenuRef}>
+            <SyncDot status={syncStatus} />
+            {user ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors text-xs font-medium text-slate-700 cursor-pointer shadow-2xs"
+                  title="账号与额度"
+                >
+                  <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[10px]">
+                    {user.username.slice(0, 1).toUpperCase()}
+                  </div>
+                  <span className="font-semibold max-w-[100px] truncate">{user.username}</span>
+                  {!isAdmin && user.is_active !== 1 && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 bg-amber-50 text-amber-800 border border-amber-200 rounded-full">
+                      {quota ? `${quota.remaining}/${quota.limit}` : '5/5'}
+                    </span>
+                  )}
+                  {isAdmin && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 bg-purple-50 text-purple-700 border border-purple-200 rounded-full">
+                      管理员
+                    </span>
+                  )}
+                  <svg className={`w-3 h-3 text-slate-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Dropdown Panel */}
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-xs animate-scaleIn">
+                    {/* User Header */}
+                    <div className="pb-2.5 mb-2.5 border-b border-slate-100 flex items-center justify-between">
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 truncate text-sm">
+                          {user.username}
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          {isAdmin ? '系统超级管理员' : user.is_active === 1 ? '已激活正版用户' : '体验版账号'}
+                        </div>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isAdmin
+                          ? 'bg-purple-100 text-purple-800'
+                          : user.is_active === 1
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {isAdmin ? '管理员' : user.is_active === 1 ? '永久有效' : '体验中'}
+                      </span>
+                    </div>
+
+                    {/* Quota details card inside account menu */}
+                    <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1.5 mb-3">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-500">上传额度:</span>
+                        <span className="font-bold text-slate-800">
+                          {isAdmin || user.is_active === 1
+                            ? '不限篇数'
+                            : quota
+                            ? `${quota.remaining} / ${quota.limit} 篇`
+                            : '5 / 5 篇'}
+                        </span>
+                      </div>
+                      {!isAdmin && user.is_active !== 1 && (
+                        <div className="text-[10px] text-slate-400 leading-normal">
+                          每月可免费导入 5 篇试卷（识别成功后计入 1 次）。
+                        </div>
+                      )}
+                      {(isAdmin || user.is_active === 1) && (
+                        <div className="text-[10px] text-emerald-700 leading-normal">
+                          已享有完整试题解析与课件导入权限。
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="space-y-1">
+                      {isAdmin && onOpenAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            onOpenAdmin();
+                          }}
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-purple-700 hover:bg-purple-50 font-semibold flex items-center justify-between transition-colors cursor-pointer"
+                        >
+                          <span>打开管理后台</span>
+                          <span className="text-[10px] text-purple-400">用户与授权码</span>
+                        </button>
+                      )}
+
+                      {!isAdmin && user.is_active !== 1 && onOpenActivation && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            onOpenActivation();
+                          }}
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100 font-bold flex items-center justify-between transition-colors cursor-pointer"
+                        >
+                          <span>输入授权码激活</span>
+                          <span className="text-[10px] text-indigo-500">升级无限制</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          if (onLogout) onLogout();
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-red-600 hover:bg-red-50 font-medium transition-colors cursor-pointer flex items-center justify-between"
+                      >
+                        <span>退出当前账号</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={onOpenAuth}
+                className="px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer"
+              >
+                登录 / 注册
+              </button>
+            )}
+          </div>
+
+
         </div>
       </div>
     </header>

@@ -7,6 +7,7 @@ import {
   exportCoursewareToJSON,
   exportAllCoursewaresBackup,
 } from '../utils/coursewareStorage';
+import { useAuth } from '../context/AuthContext';
 
 interface CoursewareLibraryModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [saveToast, setSaveToast] = useState<string | null>(null);
   const jsonFileInputRef = useRef<HTMLInputElement>(null);
+  const { syncDeleteCourseware } = useAuth();
 
   useEffect(() => {
     if (isOpen) {
@@ -57,12 +59,14 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
       const updated = deleteCoursewareFromStorage(id);
       setCoursewares(updated);
       showToast(`《${title}》已从课件库移除`);
+      syncDeleteCourseware(id);
       // If deleted active courseware, switch to the first remaining one
       if (currentCourseware?.id === id && updated[0]) {
         onSelectCourseware(updated[0]);
       }
     }
   };
+
 
   const handleJSONFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -118,7 +122,9 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-base shadow-xs">
-              📚
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -138,7 +144,9 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
             className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
             title="关闭窗口"
           >
-            ✕
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
@@ -159,7 +167,9 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
           {/* Search Input */}
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
-              🔍
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             </span>
             <input
               type="text"
@@ -175,10 +185,10 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
             {currentCourseware && (
               <button
                 onClick={handleSaveCurrent}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-2xs"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
                 title="将当前页面正在查看编辑的试卷保存至库中"
               >
-                <span>💾 保存当前课件</span>
+                <span>保存当前课件</span>
               </button>
             )}
 
@@ -187,17 +197,17 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
                 onClose();
                 onOpenImport();
               }}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-colors flex items-center gap-1.5 shadow-2xs"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
-              <span>➕ 导入新试卷</span>
+              <span>导入新试卷</span>
             </button>
 
             <button
               onClick={() => jsonFileInputRef.current?.click()}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors flex items-center gap-1"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
               title="导入此前导出的课件 JSON 文件"
             >
-              <span>📥 导入备份</span>
+              <span>导入备份</span>
             </button>
             <input
               ref={jsonFileInputRef}
@@ -209,10 +219,10 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
 
             <button
               onClick={exportAllCoursewaresBackup}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors flex items-center gap-1"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
               title="将整个课件库打包导出为 JSON 备份文件"
             >
-              <span>📤 导出全部</span>
+              <span>导出全部</span>
             </button>
           </div>
         </div>
@@ -221,7 +231,9 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
         <div className="flex-1 overflow-y-auto p-5 space-y-3 custom-scrollbar bg-slate-50/50">
           {filtered.length === 0 ? (
             <div className="py-16 text-center text-slate-400">
-              <span className="text-3xl block mb-2">📭</span>
+              <svg className="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
               <p className="text-sm font-medium">未找到匹配的试卷课件</p>
               <p className="text-xs text-slate-400 mt-1">您可以尝试更改搜索词，或点击上方“导入新试卷”生成新课件</p>
             </div>

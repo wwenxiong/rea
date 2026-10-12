@@ -12,13 +12,15 @@ import {
 } from '../utils/aiSolveService';
 import { sampleCourseware } from '../data/sampleCourseware';
 import { resolveSummaryWord, buildWordBankAnalysis, extractWordBankFromPassage } from '../utils/summaryWordBank';
+import { useAuth } from '../context/AuthContext';
 
 interface ImportDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onImport: (courseware: Courseware) => void;
-  onOpenSettings?: () => void;
+  onOpenActivation?: () => void;
 }
+
 
 interface ParsedResult {
   title: string;
@@ -455,9 +457,11 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
   isOpen,
   onClose,
   onImport,
-  onOpenSettings,
+  onOpenActivation,
 }) => {
+  const { quota, isActive, isAdmin, consumeImport } = useAuth();
   const [activeTab, setActiveTab] = useState<'image' | 'word' | 'text'>('image');
+
   const [selectedTypeMode, setSelectedTypeMode] = useState<'auto' | 'reading' | 'cloze'>('auto');
   const [rawText, setRawText] = useState('');
   const [parsed, setParsed] = useState<ParsedResult | null>(null);
@@ -505,13 +509,10 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
   const handlePreviewAISolve = async () => {
     if (!parsed) return;
     if (!aiConfig.apiKey.trim()) {
-      if (onOpenSettings) {
-        onOpenSettings();
-      } else {
-        alert('请先在系统设置中配置 API Key');
-      }
+      alert('未配置 API Key');
       return;
     }
+
 
     setIsSolvingPreview(true);
     setSolvePreviewError('');
@@ -691,11 +692,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
       return;
     }
     if (!aiConfig.apiKey.trim()) {
-      if (onOpenSettings) {
-        onOpenSettings();
-      } else {
-        setAiParseError('尚未配置 API Key，请点击右上角【设置】进行配置');
-      }
+      setAiParseError('未配置 API Key');
       return;
     }
 
@@ -841,7 +838,18 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
       updatedAt: Date.now(),
     };
 
+    // 检查额度：未激活且当月额度用尽时拦截
+    const isUnlimited = isAdmin || isActive;
+    if (!isUnlimited && quota && quota.remaining <= 0) {
+      alert(`您本月免费导入试卷额度（${quota.limit}篇）已用尽，请输入授权码激活系统解锁无限使用。`);
+      onOpenActivation?.();
+      return;
+    }
+
     onImport(courseware);
+    // 导入识别并保存成功后，扣减 1 次当月额度
+    consumeImport().catch(console.warn);
+
     setUploadedImages([]);
     setWordFile(null);
     setWordRawText('');
@@ -852,7 +860,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
     setAiParseError('');
     setAiParseStatus('');
     onClose();
-  }, [parsed, onImport, onClose]);
+  }, [parsed, onImport, onClose, isAdmin, isActive, quota, onOpenActivation, consumeImport]);
 
   const handleClose = useCallback(() => {
     setUploadedImages([]);
@@ -946,7 +954,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                     }`}
                     title="手动指定为：阅读理解题型"
                   >
-                    <span>📖 阅读理解</span>
+                    <span>阅读理解</span>
                   </button>
                   <button
                     type="button"
@@ -958,7 +966,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                     }`}
                     title="手动指定为：完形填空题型"
                   >
-                    <span>✏️ 完形填空</span>
+                    <span>完形填空</span>
                   </button>
                 </div>
               </div>
@@ -966,16 +974,6 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {step === 'input' && onOpenSettings && (
-              <button
-                onClick={onOpenSettings}
-                className="text-xs font-medium text-slate-500 hover:text-slate-800 flex items-center gap-1 bg-slate-100 hover:bg-slate-200/70 px-2.5 py-1 rounded-md transition-colors"
-                title="设置"
-              >
-                <span>⚙ 模型设置</span>
-              </button>
-            )}
-
             <button
               onClick={handleClose}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
@@ -1090,14 +1088,6 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                       <span className="font-bold shrink-0">提示:</span>
                       <span>{recognitionError}</span>
                     </div>
-                    {onOpenSettings && (
-                      <button
-                        onClick={onOpenSettings}
-                        className="underline text-red-800 font-semibold shrink-0"
-                      >
-                        前往设置
-                      </button>
-                    )}
                   </div>
                 )}
               </div>
@@ -1192,14 +1182,6 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                       <span className="font-bold shrink-0">提示:</span>
                       <span>{aiParseError}</span>
                     </div>
-                    {onOpenSettings && (
-                      <button
-                        onClick={onOpenSettings}
-                        className="underline text-red-800 font-semibold shrink-0"
-                      >
-                        前往设置配置
-                      </button>
-                    )}
                   </div>
                 )}
               </div>
@@ -1247,14 +1229,6 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                       <span className="font-bold shrink-0">提示:</span>
                       <span>{aiParseError}</span>
                     </div>
-                    {onOpenSettings && (
-                      <button
-                        onClick={onOpenSettings}
-                        className="underline text-red-800 font-semibold shrink-0"
-                      >
-                        前往设置
-                      </button>
-                    )}
                   </div>
                 )}
               </div>
@@ -1271,7 +1245,9 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                 {/* AI Solve Banner in Preview */}
                 <div className="bg-indigo-50/80 border border-indigo-200/90 rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-2xs">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-xl shrink-0">📝</span>
+                    <svg className="w-5 h-5 text-indigo-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
                     <div>
                       <div className="font-bold text-indigo-950 text-xs">
                         试题答案与原文解析
@@ -1330,7 +1306,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                         }`}
                         title="指定为常规阅读理解题型"
                       >
-                        <span>📖 阅读理解</span>
+                        <span>阅读理解</span>
                       </button>
                       <button
                         type="button"
@@ -1342,7 +1318,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                         }`}
                         title="指定为完形填空题型"
                       >
-                        <span>✏️ 完形填空</span>
+                        <span>完形填空</span>
                       </button>
                     </div>
                   </div>

@@ -266,7 +266,9 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
         >
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-6 h-6 rounded-md bg-indigo-600 text-white flex items-center justify-center text-xs shadow-2xs font-bold shrink-0">
-              📝
+              <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
@@ -303,7 +305,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <span>🖍️ 笔记</span>
+            <span>笔记</span>
             {noteText.trim() && (
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
             )}
@@ -317,7 +319,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <span>📖 释义</span>
+            <span>释义</span>
             {aiAnalysis && (
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             )}
@@ -331,7 +333,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <span>🌐 翻译</span>
+            <span>翻译</span>
             {aiTranslation && (
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             )}
@@ -359,7 +361,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                       onClick={handleInsertTranslationToNote}
                       className="text-[11px] text-emerald-600 hover:text-emerald-800 font-medium flex items-center gap-0.5 cursor-pointer"
                     >
-                      <span>📋 填入翻译</span>
+                      <span>填入翻译</span>
                     </button>
                   )}
                   {aiAnalysis && (
@@ -368,7 +370,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                       onClick={handleInsertAIToNote}
                       className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-0.5 cursor-pointer"
                     >
-                      <span>📋 填入释义</span>
+                      <span>填入释义</span>
                     </button>
                   )}
                 </div>
@@ -398,7 +400,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
               ) : translateError ? (
                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 space-y-2">
                   <div className="font-bold flex items-center gap-1.5">
-                    <span>⚠️ 翻译失败</span>
+                    <span>翻译失败</span>
                   </div>
                   <p className="text-[11px]">{translateError}</p>
                   <button
@@ -431,7 +433,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                   <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/90 rounded-xl space-y-2">
                     <div className="flex items-center gap-1.5 text-emerald-900 font-extrabold text-xs">
                       <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
-                      <span>📖 译文</span>
+                      <span>译文</span>
                     </div>
                     <div className="text-emerald-950 font-bold text-sm leading-relaxed pt-0.5">
                       {aiTranslation.translation}
@@ -453,7 +455,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                     <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
                       <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                        <span>🧩 句法拆解</span>
+                        <span>句法拆解</span>
                       </div>
                       <p className="text-slate-700 leading-relaxed text-xs pt-0.5 whitespace-pre-line">
                         {aiTranslation.syntaxBreakdown}
@@ -466,7 +468,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                     <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-xl space-y-1.5">
                       <div className="font-bold text-purple-900 text-xs flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-purple-600"></span>
-                        <span>💡 重点词汇</span>
+                        <span>重点词汇</span>
                       </div>
                       <div className="flex flex-wrap gap-2 pt-1">
                         {aiTranslation.keyVocabulary.map((item, idx) => (
@@ -489,7 +491,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                       onClick={handleInsertTranslationToNote}
                       className="w-full py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <span>📝 存入笔记</span>
+                      <span>存入笔记</span>
                     </button>
                   </div>
                 </div>
@@ -524,7 +526,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
               ) : aiError ? (
                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 space-y-2">
                   <div className="font-bold flex items-center gap-1.5">
-                    <span>⚠️ 解析失败</span>
+                    <span>解析失败</span>
                   </div>
                   <p className="text-[11px]">{aiError}</p>
                   <button
@@ -562,7 +564,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                   <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/90 rounded-xl space-y-1.5">
                     <div className="flex items-center gap-1.5 text-emerald-900 font-extrabold text-xs">
                       <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
-                      <span>📖 本文释义</span>
+                      <span>本文释义</span>
                     </div>
                     <div className="flex items-baseline gap-2 pt-0.5">
                       <span className="px-1.5 py-0.5 bg-emerald-600 text-white font-bold rounded text-[11px]">
@@ -584,7 +586,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                     <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                       <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                        <span>📚 所有词义</span>
+                        <span>所有词义</span>
                       </div>
                       <div className="space-y-2 pt-0.5">
                         {aiAnalysis.allMeanings.map((m, idx) => (
@@ -613,7 +615,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                     <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-xl space-y-1.5">
                       <div className="font-bold text-purple-900 text-xs flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-purple-600"></span>
-                        <span>💡 常用搭配</span>
+                        <span>常用搭配</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {aiAnalysis.collocations.map((col, idx) => (
@@ -633,9 +635,9 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                     <button
                       type="button"
                       onClick={handleInsertAIToNote}
-                      className="w-full py-2 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+                      className="w-full py-2 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <span>📝 存入笔记</span>
+                      <span>存入笔记</span>
                     </button>
                   </div>
                 </div>
@@ -669,7 +671,7 @@ export const ArticleAnnotationModal: React.FC<ArticleAnnotationModalProps> = ({
                 }}
                 className="px-2 py-1 text-[11px] font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
               >
-                🗑️ 删除标记
+                删除标记
               </button>
             )}
           </div>

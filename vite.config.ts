@@ -71,4 +71,13 @@ export default defineConfig({
   build: {
     emptyOutDir: false,
   },
+  server: {
+    proxy: {
+      '/api/auth': 'http://localhost:3001',
+      '/api/sync': 'http://localhost:3001',
+      '/api/admin': 'http://localhost:3001',
+      '/api/health': 'http://localhost:3001',
+    },
+  },
 });
+
