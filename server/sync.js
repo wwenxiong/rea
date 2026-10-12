@@ -9,11 +9,36 @@ router.use(requireAuth);
 
 
 
+const { sampleCourseware, sampleClozeCourseware, sampleWordBankCourseware } = require('./sampleData');
+
 // GET /api/sync/coursewares  拉取当前用户的全部课件
 router.get('/coursewares', (req, res) => {
-  const rows = db.prepare(
+  let rows = db.prepare(
     'SELECT id, content, updated_at FROM coursewares WHERE user_id = ? AND deleted = 0 ORDER BY updated_at DESC'
   ).all(req.user.id);
+
+  // 如果该用户在云端还没有任何课件记录（包括新注册用户），为其独立初始化专属的 3 套预设示例课件
+  if (rows.length === 0) {
+    const hasAny = db.prepare('SELECT 1 FROM coursewares WHERE user_id = ? LIMIT 1').get(req.user.id);
+    if (!hasAny) {
+      const insertStmt = db.prepare(`
+        INSERT INTO coursewares (id, user_id, content, updated_at, deleted)
+        VALUES (?, ?, ?, ?, 0)
+      `);
+      const now = Date.now();
+      const samples = [sampleCourseware, sampleWordBankCourseware, sampleClozeCourseware];
+      const txn = db.transaction(() => {
+        samples.forEach((sample, idx) => {
+          insertStmt.run(sample.id, req.user.id, JSON.stringify(sample), now - (idx * 1000));
+        });
+      });
+      txn();
+
+      rows = db.prepare(
+        'SELECT id, content, updated_at FROM coursewares WHERE user_id = ? AND deleted = 0 ORDER BY updated_at DESC'
+      ).all(req.user.id);
+    }
+  }
 
   const list = rows.map(r => {
     try { return JSON.parse(r.content); }

@@ -17,6 +17,7 @@ import type { Courseware, ArticleAnnotation, AIWordAnalysis } from './types';
 import {
   getSavedCoursewares,
   saveCoursewareToStorage,
+  setAllCoursewaresToStorage,
   getActiveCoursewareId,
   setActiveCoursewareId,
 } from './utils/coursewareStorage';
@@ -115,49 +116,46 @@ function App() {
     };
   }, [isDraggingSplitter]);
 
-  // Initialize with saved courseware on first render
-  const [initialized, setInitialized] = useState(false);
-  if (!initialized) {
-    const savedList = getSavedCoursewares();
-    const activeId = getActiveCoursewareId();
-    const target =
-      (activeId && savedList.find((c) => c.id === activeId)) ||
-      savedList[0] ||
-      sampleCourseware;
-    setCourseware(target);
-    setLibraryCount(savedList.length);
-    setInitialized(true);
-  }
-
-  // 登录后自动拉取云端数据，与本地合并（以 updatedAt 较新者为准）
+  // 当登录用户发生变化（登录新账号、切换账号、注销）时，完全从云端拉取属于该用户的课件
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn || !user) {
+      // 未登录时显示空白或示例课件
+      setCourseware(sampleCourseware);
+      setLibraryCount(0);
+      return;
+    }
+
+    // 已登录用户：优先从云端拉取当前用户的专属课件
+    let isCancelled = false;
     pullCoursewares().then((cloudList) => {
-      if (!cloudList.length) return;
-      const localList = getSavedCoursewares();
-      const localMap = new Map(localList.map((c) => [c.id, c]));
-      let changed = false;
-      for (const remote of cloudList) {
-        const local = localMap.get(remote.id);
-        if (!local || remote.updatedAt > local.updatedAt) {
-          localMap.set(remote.id, remote);
-          changed = true;
+      if (isCancelled) return;
+      if (cloudList && cloudList.length > 0) {
+        // 完全以云端数据为准更新当前用户的隔离存储
+        const userId = user.id;
+        const activeId = getActiveCoursewareId(userId);
+        const target =
+          (activeId && cloudList.find((c) => c.id === activeId)) ||
+          cloudList[0];
+
+        // 仅在当前用户的隔离空间内缓存，绝不污染全局或其他账号
+        setAllCoursewaresToStorage(cloudList, userId);
+
+        setCourseware(target);
+        setLibraryCount(cloudList.length);
+        if (target) {
+          setActiveCoursewareId(target.id, userId);
         }
-      }
-      if (changed) {
-        const merged = Array.from(localMap.values()).sort((a, b) => b.updatedAt - a.updatedAt);
-        merged.forEach((cw) => saveCoursewareToStorage(cw));
-        setLibraryCount(merged.length);
-        // 如果当前课件有更新版本，切换到最新版
-        const currentId = getActiveCoursewareId();
-        if (currentId) {
-          const latest = localMap.get(currentId);
-          if (latest) setCourseware(latest);
-        }
+      } else {
+        // 如果云端还没有课件
+        setCourseware(sampleCourseware);
+        setLibraryCount(0);
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isLoggedIn, user?.id]);
 
   const handleQuestionClick = useCallback(
     (questionId: number) => {
@@ -190,33 +188,35 @@ function App() {
   );
 
   const handleImport = useCallback(
-    (courseware: Courseware) => {
-      const updated = saveCoursewareToStorage(courseware);
-      setCourseware(courseware);
+    (newCourseware: Courseware) => {
+      const userId = user?.id;
+      const updated = saveCoursewareToStorage(newCourseware, userId);
+      setCourseware(newCourseware);
       setLibraryCount(updated.length);
-      setActiveCoursewareId(courseware.id);
-      syncCourseware(courseware);
+      setActiveCoursewareId(newCourseware.id, userId);
+      syncCourseware(newCourseware);
     },
-    [setCourseware, syncCourseware]
+    [user?.id, setCourseware, syncCourseware]
   );
 
   const handleSelectCourseware = useCallback(
-    (courseware: Courseware) => {
-      setCourseware(courseware);
-      setActiveCoursewareId(courseware.id);
+    (selected: Courseware) => {
+      setCourseware(selected);
+      setActiveCoursewareId(selected.id, user?.id);
     },
-    [setCourseware]
+    [user?.id, setCourseware]
   );
 
   const handleAISolveSuccess = useCallback(
     (updatedCourseware: Courseware) => {
+      const userId = user?.id;
       setCourseware(updatedCourseware);
-      const updatedList = saveCoursewareToStorage(updatedCourseware);
+      const updatedList = saveCoursewareToStorage(updatedCourseware, userId);
       setLibraryCount(updatedList.length);
-      setActiveCoursewareId(updatedCourseware.id);
+      setActiveCoursewareId(updatedCourseware.id, userId);
       syncCourseware(updatedCourseware);
     },
-    [setCourseware, syncCourseware]
+    [user?.id, setCourseware, syncCourseware]
   );
 
   const handleExport = useCallback(() => {
@@ -267,10 +267,10 @@ function App() {
       };
 
       setCourseware(updatedCw);
-      saveCoursewareToStorage(updatedCw);
+      saveCoursewareToStorage(updatedCw, user?.id);
       syncCourseware(updatedCw);
     },
-    [state.courseware, setCourseware, syncCourseware]
+    [state.courseware, user?.id, setCourseware, syncCourseware]
   );
 
   const handleDeleteAnnotation = useCallback(
@@ -287,10 +287,10 @@ function App() {
       };
 
       setCourseware(updatedCw);
-      saveCoursewareToStorage(updatedCw);
+      saveCoursewareToStorage(updatedCw, user?.id);
       syncCourseware(updatedCw);
     },
-    [state.courseware, setCourseware, syncCourseware]
+    [state.courseware, user?.id, setCourseware, syncCourseware]
   );
 
 
@@ -602,7 +602,7 @@ function App() {
           currentCourseware={state.courseware}
           onClose={() => {
             setShowLibrary(false);
-            setLibraryCount(getSavedCoursewares().length);
+            setLibraryCount(getSavedCoursewares(user?.id).length);
           }}
           onSelectCourseware={handleSelectCourseware}
           onOpenImport={() => setShowImport(true)}
@@ -780,7 +780,7 @@ function App() {
         currentCourseware={state.courseware}
         onClose={() => {
           setShowLibrary(false);
-          setLibraryCount(getSavedCoursewares().length);
+          setLibraryCount(getSavedCoursewares(user?.id).length);
         }}
         onSelectCourseware={handleSelectCourseware}
         onOpenImport={() => setShowImport(true)}

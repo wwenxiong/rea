@@ -134,10 +134,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshQuota]);
 
   const logout = useCallback(() => {
+    try {
+      localStorage.removeItem('rc_saved_coursewares_v1');
+      localStorage.removeItem('rc_active_courseware_id_v1');
+      if (user?.id) {
+        localStorage.removeItem(`rc_coursewares_u_${user.id}`);
+        localStorage.removeItem(`rc_coursewares_u_${user.id}_active_id`);
+      }
+    } catch {
+      // ignore
+    }
     clearToken();
     setUser(null);
     setQuota(null);
-  }, []);
+  }, [user?.id]);
 
   const syncCourseware = useCallback(
     (cw: Courseware) => {

@@ -28,14 +28,14 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [saveToast, setSaveToast] = useState<string | null>(null);
   const jsonFileInputRef = useRef<HTMLInputElement>(null);
-  const { syncDeleteCourseware } = useAuth();
+  const { user, syncDeleteCourseware, syncCourseware } = useAuth();
 
   useEffect(() => {
     if (isOpen) {
-      const list = getSavedCoursewares();
+      const list = getSavedCoursewares(user?.id);
       setCoursewares(list);
     }
-  }, [isOpen]);
+  }, [isOpen, user?.id]);
 
   const showToast = (msg: string) => {
     setSaveToast(msg);
@@ -44,8 +44,9 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
 
   const handleSaveCurrent = () => {
     if (!currentCourseware) return;
-    const updated = saveCoursewareToStorage(currentCourseware);
+    const updated = saveCoursewareToStorage(currentCourseware, user?.id);
     setCoursewares(updated);
+    syncCourseware(currentCourseware);
     showToast(`《${currentCourseware.title}》已成功保存至课件库！`);
   };
 
@@ -56,7 +57,7 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
       return;
     }
     if (window.confirm(`确定要从课件库中删除《${title}》吗？`)) {
-      const updated = deleteCoursewareFromStorage(id);
+      const updated = deleteCoursewareFromStorage(id, user?.id);
       setCoursewares(updated);
       showToast(`《${title}》已从课件库移除`);
       syncDeleteCourseware(id);
@@ -81,15 +82,17 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
           // Backup list
           parsed.forEach((item) => {
             if (item.title && Array.isArray(item.paragraphs)) {
-              saveCoursewareToStorage(item);
+              saveCoursewareToStorage(item, user?.id);
+              syncCourseware(item);
             }
           });
-          setCoursewares(getSavedCoursewares());
+          setCoursewares(getSavedCoursewares(user?.id));
           showToast(`已批量导入并恢复 ${parsed.length} 篇课件！`);
         } else if (parsed.title && Array.isArray(parsed.paragraphs)) {
           // Single courseware
-          const updated = saveCoursewareToStorage(parsed);
+          const updated = saveCoursewareToStorage(parsed, user?.id);
           setCoursewares(updated);
+          syncCourseware(parsed);
           onSelectCourseware(parsed);
           showToast(`已成功导入《${parsed.title}》并切换！`);
         } else {

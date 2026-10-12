@@ -1,43 +1,68 @@
 import type { Courseware } from '../types';
-import { sampleCourseware, sampleClozeCourseware, sampleWordBankCourseware } from '../data/sampleCourseware';
 
-const STORAGE_KEY = 'rc_saved_coursewares_v1';
-const ACTIVE_ID_KEY = 'rc_active_courseware_id_v1';
+// 用户隔离 Storage Key
+function getStorageKey(userId?: number | string | null): string {
+  if (!userId) {
+    try {
+      const raw = localStorage.getItem('rc_auth_user');
+      if (raw) {
+        const u = JSON.parse(raw);
+        if (u && u.id) return `rc_coursewares_u_${u.id}`;
+      }
+    } catch {
+      // ignore
+    }
+    return 'rc_coursewares_guest';
+  }
+  return `rc_coursewares_u_${userId}`;
+}
 
-export function getSavedCoursewares(): Courseware[] {
+function getActiveIdKey(userId?: number | string | null): string {
+  return `${getStorageKey(userId)}_active_id`;
+}
+
+// 清除旧版本全局共享的脏缓存（避免跨账号串数据）
+export function cleanLegacyGlobalStorage(): void {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      const initial = [sampleCourseware, sampleWordBankCourseware, sampleClozeCourseware];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-      return initial;
-    }
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      let changed = false;
-      if (!parsed.some((c: Courseware) => c.id === sampleWordBankCourseware.id)) {
-        parsed.splice(1, 0, sampleWordBankCourseware);
-        changed = true;
-      }
-      if (!parsed.some((c: Courseware) => c.id === sampleClozeCourseware.id)) {
-        parsed.push(sampleClozeCourseware);
-        changed = true;
-      }
-      if (changed) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-      }
-      return parsed;
-    }
-    return [sampleCourseware, sampleWordBankCourseware, sampleClozeCourseware];
-  } catch (e) {
-    console.error('Failed to load coursewares from localStorage', e);
-    return [sampleCourseware, sampleWordBankCourseware, sampleClozeCourseware];
+    localStorage.removeItem('rc_saved_coursewares_v1');
+    localStorage.removeItem('rc_active_courseware_id_v1');
+  } catch {
+    // ignore
   }
 }
 
-export function saveCoursewareToStorage(courseware: Courseware): Courseware[] {
+// 供账号注销/切换时清空某个用户或所有临时数据
+export function clearUserCoursewares(userId?: number | string | null): void {
   try {
-    const list = getSavedCoursewares();
+    localStorage.removeItem(getStorageKey(userId));
+    localStorage.removeItem(getActiveIdKey(userId));
+  } catch {
+    // ignore
+  }
+}
+
+export function getSavedCoursewares(userId?: number | string | null): Courseware[] {
+  cleanLegacyGlobalStorage();
+  try {
+    const key = getStorageKey(userId);
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+    return [];
+  } catch (e) {
+    console.error('Failed to load coursewares from user storage', e);
+    return [];
+  }
+}
+
+export function saveCoursewareToStorage(courseware: Courseware, userId?: number | string | null): Courseware[] {
+  try {
+    const list = getSavedCoursewares(userId);
     const existingIndex = list.findIndex((c) => c.id === courseware.id);
     let updatedList: Courseware[];
     const updatedItem = {
@@ -52,39 +77,46 @@ export function saveCoursewareToStorage(courseware: Courseware): Courseware[] {
       updatedList = [updatedItem, ...list];
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
-    localStorage.setItem(ACTIVE_ID_KEY, courseware.id);
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(updatedList));
+    localStorage.setItem(getActiveIdKey(userId), courseware.id);
     return updatedList;
   } catch (e) {
-    console.error('Failed to save courseware to localStorage', e);
+    console.error('Failed to save courseware to user storage', e);
     return [courseware];
   }
 }
 
-export function deleteCoursewareFromStorage(id: string): Courseware[] {
+export function setAllCoursewaresToStorage(coursewares: Courseware[], userId?: number | string | null): void {
   try {
-    const list = getSavedCoursewares();
-    const updatedList = list.filter((c) => c.id !== id);
-    const final = updatedList.length > 0 ? updatedList : [sampleCourseware];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(final));
-    return final;
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(coursewares));
   } catch (e) {
-    console.error('Failed to delete courseware', e);
-    return [sampleCourseware];
+    console.error('Failed to set all coursewares to storage', e);
   }
 }
 
-export function getActiveCoursewareId(): string | null {
+export function deleteCoursewareFromStorage(id: string, userId?: number | string | null): Courseware[] {
   try {
-    return localStorage.getItem(ACTIVE_ID_KEY);
+    const list = getSavedCoursewares(userId);
+    const updatedList = list.filter((c) => c.id !== id);
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(updatedList));
+    return updatedList;
+  } catch (e) {
+    console.error('Failed to delete courseware', e);
+    return [];
+  }
+}
+
+export function getActiveCoursewareId(userId?: number | string | null): string | null {
+  try {
+    return localStorage.getItem(getActiveIdKey(userId));
   } catch {
     return null;
   }
 }
 
-export function setActiveCoursewareId(id: string): void {
+export function setActiveCoursewareId(id: string, userId?: number | string | null): void {
   try {
-    localStorage.setItem(ACTIVE_ID_KEY, id);
+    localStorage.setItem(getActiveIdKey(userId), id);
   } catch (e) {
     console.error('Failed to set active courseware id', e);
   }
