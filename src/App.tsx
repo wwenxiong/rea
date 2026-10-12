@@ -572,9 +572,9 @@ function App() {
           <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-base mx-auto shadow-xs">
             SR
           </div>
-          <h1 className="text-xl font-bold text-slate-800">SmartRead 精读课件系统</h1>
+          <h1 className="text-xl font-bold text-slate-800">SmartRead</h1>
           <p className="text-slate-500 text-xs leading-relaxed">
-            双栏交互式精读课件，支持试卷导入、原文定位与静态课件导出。
+            双栏交互式学习课件，支持试卷导入、原文定位与静态课件导出。
           </p>
           <div className="flex items-center gap-3 pt-2">
             <button
@@ -650,7 +650,7 @@ function App() {
         <section
           className="flex-none h-full overflow-hidden flex flex-col"
           style={{ width: `calc(${splitPercent}% - 6px)` }}
-          aria-label="文章精读区"
+          aria-label="文章阅读区"
         >
           <div className="h-full flex flex-col bg-white rounded-2xl shadow-xs border border-[#e8e2d6] overflow-hidden">
             <ArticlePanel

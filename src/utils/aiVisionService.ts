@@ -345,7 +345,7 @@ JSON Structure:
   }));
 
   return {
-    title: parsed.title || '阅读理解精读课件',
+    title: parsed.title || '阅读理解课件',
     subtitle: parsed.subtitle || '',
     paragraphs,
     summaryGroup,

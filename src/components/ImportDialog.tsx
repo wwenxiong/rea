@@ -825,7 +825,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
 
     const courseware: Courseware = {
       id: `cw-${Date.now()}`,
-      title: parsed.title || (isClozeType ? '完形填空精读课件' : '阅读理解精读课件'),
+      title: parsed.title || (isClozeType ? '完形填空课件' : '阅读理解课件'),
       subtitle: parsed.subtitle || (isClozeType ? 'Cloze Test · 完型填空' : '教师导入课件'),
       coursewareType: isClozeType ? 'cloze' : 'reading',
       paragraphs: parsed.paragraphs,
@@ -1219,7 +1219,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                   onChange={(e) => setRawText(e.target.value)}
                   placeholder="在此直接粘贴试卷的全文内容（文章与题目）...
 
-系统将自动提取文章段落、识别各类试题，并生成对应参考答案与原文精读解析。"
+系统将自动提取文章段落、识别各类试题，并生成对应参考答案与原文依据解析。"
                   className="w-full h-96 p-4 text-xs font-mono border border-slate-200 rounded-xl leading-relaxed text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 resize-none bg-slate-50/30"
                 />
 
@@ -1455,7 +1455,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                 '自动划分文章段落、提取试题并生成答案与依据'
               )
             ) : (
-              '确认后将进入精读课件'
+              '确认后将进入课件'
             )}
           </div>
 
@@ -1557,7 +1557,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                 onClick={handleConfirm}
                 className="px-5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-xs cursor-pointer"
               >
-                确认并开始精读
+                确认并打开课件
               </button>
             )}
           </div>

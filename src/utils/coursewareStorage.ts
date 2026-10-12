@@ -129,7 +129,7 @@ export function exportCoursewareToJSON(courseware: Courseware): void {
   const a = document.createElement('a');
   a.href = url;
   const safeTitle = (courseware.title || 'courseware').replace(/[^\w\u4e00-\u9fa5-_]/g, '_');
-  a.download = `${safeTitle}_精读课件.json`;
+  a.download = `${safeTitle}_课件.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -141,7 +141,7 @@ export function exportAllCoursewaresBackup(): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `全部精读课件备份_${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `全部课件备份_${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }

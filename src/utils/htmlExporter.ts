@@ -8,13 +8,13 @@ import { getConciseAnnotationMeaning } from './textSelectionUtils';
  * representing the reading comprehension courseware.
  */
 export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: number = 18): void {
-  const title = courseware.title || '阅读理解精读课件';
-  const subtitle = courseware.subtitle || '双栏互动精读课件';
+  const title = courseware.title || '阅读理解课件';
+  const subtitle = courseware.subtitle || '双栏互动课件';
   const safeFontSize = Math.min(28, Math.max(14, initialFontSize || 18));
 
   // Build safe filename
   const safeTitle = title.replace(/[\\/:*?"<>|]/g, '_').trim() || 'courseware';
-  const fileName = `${safeTitle}-精读课件.html`;
+  const fileName = `${safeTitle}-课件.html`;
 
   // Pre-collect all questions and summary items
   const allQuestionsMap = new Map<number, {
@@ -237,7 +237,7 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
         <div class="summary-body-text">${summaryParagraphsHtml}</div>
         <div class="summary-analysis-section">
           <div class="summary-analysis-title">
-            <span>填空题精读解析 (Questions ${escapeHtml(sg.idRange)})</span>
+            <span>填空题解析 (Questions ${escapeHtml(sg.idRange)})</span>
             <span class="analysis-subtitle">点击题目可查看对应原文依据</span>
           </div>
           <div class="summary-items-list">
@@ -324,7 +324,7 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)} - SmartRead 精读课件</title>
+  <title>${escapeHtml(title)} - SmartRead 课件</title>
   <style>
     :root {
       --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -851,7 +851,7 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
       <div class="brand-icon">SR</div>
       <div class="header-title-box">
         <h1 class="header-title">${escapeHtml(title)}</h1>
-        <div class="header-subtitle">${escapeHtml(subtitle || 'SmartRead 双栏互动精读课件')}</div>
+        <div class="header-subtitle">${escapeHtml(subtitle || 'SmartRead 双栏互动课件')}</div>
       </div>
     </div>
     <div class="header-right">
@@ -873,7 +873,7 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
   <!-- Workspace with Independent Scrollable Columns -->
   <main class="workspace" id="mainWorkspace">
     <!-- Left: Passage Panel (Independent Scroll) -->
-    <section class="passage-panel" id="passagePanel" aria-label="文章精读区">
+    <section class="passage-panel" id="passagePanel" aria-label="文章阅读区">
       <h1 class="passage-headline">${escapeHtml(title)}</h1>
       <div class="passage-submeta">${escapeHtml(subtitle)}</div>
       <div class="paragraphs-list">

@@ -640,7 +640,7 @@ Please parse the reading passage, extract all questions, solve every question wi
 
   const parsed = extractAndParseJSON(rawContent);
 
-  const title: string = parsed.title || '阅读理解精读课件';
+  const title: string = parsed.title || '阅读理解课件';
   const subtitle: string = parsed.subtitle || '';
   const paragraphs: string[] = Array.isArray(parsed.paragraphs) ? parsed.paragraphs : [];
 

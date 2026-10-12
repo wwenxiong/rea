@@ -59,7 +59,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onClose, forceMode = false 
           <div className="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm tracking-tighter mx-auto shadow-md">
             SR
           </div>
-          <h1 className="text-base font-bold text-white tracking-tight">SmartRead 精读系统</h1>
+          <h1 className="text-base font-bold text-white tracking-tight">SmartRead</h1>
           <p className="text-[11px] text-slate-400">请先登录或注册账号以使用系统所有功能</p>
         </div>
       )}

@@ -269,7 +269,7 @@ const sampleCourseware = {
 const sampleClozeCourseware = {
   id: 'cw-cloze-xrays',
   title: 'The Discovery of X-rays',
-  subtitle: 'Cloze Test · 完形填空精读 (10 题)',
+  subtitle: 'Cloze Test · 完形填空 (10 题)',
   coursewareType: 'cloze',
   paragraphs: [
     "The first X-ray photograph was ____1____ by a German scientist, Wilhelm Conrad Roentgen, in 1895. It is his wife's ____2____. The bones in her hand (and also her ring) are clearly seen in the photo.",
