@@ -126,6 +126,11 @@ export const syncApi = {
       method: 'DELETE',
     });
   },
+  clearAllCoursewares() {
+    return request<{ ok: boolean }>('/api/sync/coursewares', {
+      method: 'DELETE',
+    });
+  },
 };
 
 // Admin API

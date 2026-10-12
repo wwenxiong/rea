@@ -200,9 +200,9 @@ function App() {
   );
 
   const handleSelectCourseware = useCallback(
-    (selected: Courseware) => {
+    (selected: Courseware | null) => {
       setCourseware(selected);
-      setActiveCoursewareId(selected.id, user?.id);
+      setActiveCoursewareId(selected ? selected.id : null, user?.id);
     },
     [user?.id, setCourseware]
   );

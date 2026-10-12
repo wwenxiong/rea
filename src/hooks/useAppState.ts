@@ -3,7 +3,7 @@ import type { AppState, Courseware, TeachingMode } from '../types';
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, FONT_SIZE_STEP } from '../constants/design';
 
 type Action =
-  | { type: 'SET_COURSEWARE'; payload: Courseware }
+  | { type: 'SET_COURSEWARE'; payload: Courseware | null }
   | { type: 'SET_MODE'; payload: TeachingMode }
   | { type: 'SET_FONT_SIZE'; payload: number }
   | { type: 'INCREASE_FONT_SIZE' }
@@ -142,7 +142,7 @@ function reducer(state: AppState, action: Action): AppState {
 export function useAppState() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const setCourseware = useCallback((cw: Courseware) => dispatch({ type: 'SET_COURSEWARE', payload: cw }), []);
+  const setCourseware = useCallback((cw: Courseware | null) => dispatch({ type: 'SET_COURSEWARE', payload: cw }), []);
   const setMode = useCallback((mode: TeachingMode) => dispatch({ type: 'SET_MODE', payload: mode }), []);
   const setFontSize = useCallback((size: number) => dispatch({ type: 'SET_FONT_SIZE', payload: size }), []);
   const increaseFontSize = useCallback(() => dispatch({ type: 'INCREASE_FONT_SIZE' }), []);

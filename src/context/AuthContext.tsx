@@ -26,6 +26,8 @@ interface AuthContextValue {
   syncCourseware(cw: Courseware): void;
   // 删除课件时同步删除
   syncDeleteCourseware(id: string): void;
+  // 清空课件库时同步清空
+  syncClearAllCoursewares(): void;
   // 拉取云端全部课件
   pullCoursewares(): Promise<Courseware[]>;
 }
@@ -169,6 +171,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [user]
   );
 
+  const syncClearAllCoursewares = useCallback(() => {
+    if (!user) return;
+    syncApi.clearAllCoursewares().catch(console.warn);
+  }, [user]);
+
   const pullCoursewares = useCallback(async (): Promise<Courseware[]> => {
     if (!user) return [];
     setSyncStatus('syncing');
@@ -203,6 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         syncCourseware,
         syncDeleteCourseware,
+        syncClearAllCoursewares,
         pullCoursewares,
       }}
     >

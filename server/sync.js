@@ -76,6 +76,14 @@ router.post('/coursewares', (req, res) => {
   res.json({ ok: true });
 });
 
+// DELETE /api/sync/coursewares  清空当前用户的全部课件
+router.delete('/coursewares', (req, res) => {
+  db.prepare(
+    'UPDATE coursewares SET deleted = 1, updated_at = ? WHERE user_id = ? AND deleted = 0'
+  ).run(Date.now(), req.user.id);
+  res.json({ ok: true });
+});
+
 // DELETE /api/sync/coursewares/:id  软删除一个课件
 router.delete('/coursewares/:id', (req, res) => {
   db.prepare(

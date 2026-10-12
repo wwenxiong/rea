@@ -4,6 +4,7 @@ import {
   getSavedCoursewares,
   saveCoursewareToStorage,
   deleteCoursewareFromStorage,
+  clearUserCoursewares,
   exportCoursewareToJSON,
   exportAllCoursewaresBackup,
 } from '../utils/coursewareStorage';
@@ -13,7 +14,7 @@ interface CoursewareLibraryModalProps {
   isOpen: boolean;
   currentCourseware: Courseware | null;
   onClose: () => void;
-  onSelectCourseware: (courseware: Courseware) => void;
+  onSelectCourseware: (courseware: Courseware | null) => void;
   onOpenImport: () => void;
 }
 
@@ -28,7 +29,7 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [saveToast, setSaveToast] = useState<string | null>(null);
   const jsonFileInputRef = useRef<HTMLInputElement>(null);
-  const { user, syncDeleteCourseware, syncCourseware } = useAuth();
+  const { user, syncDeleteCourseware, syncCourseware, syncClearAllCoursewares } = useAuth();
 
   useEffect(() => {
     if (isOpen) {
@@ -52,19 +53,30 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
 
   const handleDelete = (id: string, title: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (coursewares.length <= 1) {
-      alert('课件库中至少需保留一篇试卷！');
-      return;
-    }
     if (window.confirm(`确定要从课件库中删除《${title}》吗？`)) {
       const updated = deleteCoursewareFromStorage(id, user?.id);
       setCoursewares(updated);
       showToast(`《${title}》已从课件库移除`);
       syncDeleteCourseware(id);
-      // If deleted active courseware, switch to the first remaining one
-      if (currentCourseware?.id === id && updated[0]) {
-        onSelectCourseware(updated[0]);
+      // If deleted active courseware, switch to the first remaining one or null
+      if (currentCourseware?.id === id) {
+        if (updated.length > 0) {
+          onSelectCourseware(updated[0]);
+        } else {
+          onSelectCourseware(null);
+        }
       }
+    }
+  };
+
+  const handleClearAll = () => {
+    if (coursewares.length === 0) return;
+    if (window.confirm('确定要清空课件库中的所有试卷吗？此操作不可逆。')) {
+      clearUserCoursewares(user?.id);
+      setCoursewares([]);
+      syncClearAllCoursewares();
+      onSelectCourseware(null);
+      showToast('课件库已全部清空');
     }
   };
 
@@ -221,12 +233,25 @@ export const CoursewareLibraryModal: React.FC<CoursewareLibraryModalProps> = ({
             />
 
             <button
-              onClick={exportAllCoursewaresBackup}
+              onClick={() => exportAllCoursewaresBackup(user?.id)}
               className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
               title="将整个课件库打包导出为 JSON 备份文件"
             >
               <span>导出全部</span>
             </button>
+
+            {coursewares.length > 0 && (
+              <button
+                onClick={handleClearAll}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 transition-colors flex items-center gap-1 cursor-pointer"
+                title="清空课件库中的所有课件"
+              >
+                <svg className="w-3.5 h-3.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span>清空课件库</span>
+              </button>
+            )}
           </div>
         </div>
 

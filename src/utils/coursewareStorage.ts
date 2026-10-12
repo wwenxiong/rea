@@ -114,9 +114,13 @@ export function getActiveCoursewareId(userId?: number | string | null): string |
   }
 }
 
-export function setActiveCoursewareId(id: string, userId?: number | string | null): void {
+export function setActiveCoursewareId(id: string | null, userId?: number | string | null): void {
   try {
-    localStorage.setItem(getActiveIdKey(userId), id);
+    if (!id) {
+      localStorage.removeItem(getActiveIdKey(userId));
+    } else {
+      localStorage.setItem(getActiveIdKey(userId), id);
+    }
   } catch (e) {
     console.error('Failed to set active courseware id', e);
   }
@@ -134,8 +138,8 @@ export function exportCoursewareToJSON(courseware: Courseware): void {
   URL.revokeObjectURL(url);
 }
 
-export function exportAllCoursewaresBackup(): void {
-  const list = getSavedCoursewares();
+export function exportAllCoursewaresBackup(userId?: number | string | null): void {
+  const list = getSavedCoursewares(userId);
   const jsonStr = JSON.stringify(list, null, 2);
   const blob = new Blob([jsonStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
