@@ -90,11 +90,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       {/* Brand & Title */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm tracking-tighter shadow-xs">
-            RC
+          <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-xs tracking-tighter shadow-xs">
+            SR
           </div>
           <span className="font-bold text-slate-800 text-sm hidden sm:inline tracking-tight">
-            精读课件
+            SmartRead
           </span>
         </div>
 

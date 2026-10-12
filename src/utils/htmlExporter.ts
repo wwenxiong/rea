@@ -324,7 +324,7 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)} - 互动精读课件</title>
+  <title>${escapeHtml(title)} - SmartRead 精读课件</title>
   <style>
     :root {
       --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -848,10 +848,10 @@ export function exportCoursewareToHTML(courseware: Courseware, initialFontSize: 
   <!-- Header Toolbar -->
   <header class="app-header">
     <div class="header-left">
-      <div class="brand-icon">RC</div>
+      <div class="brand-icon">SR</div>
       <div class="header-title-box">
         <h1 class="header-title">${escapeHtml(title)}</h1>
-        <div class="header-subtitle">${escapeHtml(subtitle)}</div>
+        <div class="header-subtitle">${escapeHtml(subtitle || 'SmartRead 双栏互动精读课件')}</div>
       </div>
     </div>
     <div class="header-right">

@@ -569,10 +569,10 @@ function App() {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-slate-50">
         <div className="text-center space-y-4 max-w-md p-8 bg-white rounded-2xl shadow-sm border border-slate-200">
-          <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-lg mx-auto shadow-xs">
-            RC
+          <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-base mx-auto shadow-xs">
+            SR
           </div>
-          <h1 className="text-xl font-bold text-slate-800">雅思阅读精读课件系统</h1>
+          <h1 className="text-xl font-bold text-slate-800">SmartRead 精读课件系统</h1>
           <p className="text-slate-500 text-xs leading-relaxed">
             双栏交互式精读课件，支持试卷导入、原文定位与静态课件导出。
           </p>
